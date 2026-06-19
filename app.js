@@ -36,7 +36,7 @@ function uid(prefix){return `${prefix}_${Date.now().toString(36)}${Math.random()
 function cleanText(value=''){return String(value??'').normalize('NFKC').trim().replace(/\s+/g,' ')}
 function cleanFields(item,keys){keys.forEach(key=>{if(key in item)item[key]=cleanText(item[key])});return item}
 function compareText(a,b){return cleanText(a).localeCompare(cleanText(b),'en',{sensitivity:'base',numeric:true,ignorePunctuation:true})}
-function cardSeasonStart(card){const match=cleanText(card?.version).match(/(?:18|19|20)\d{2}/);return match?Number(match[0]):Number.MAX_SAFE_INTEGER}
+function cardSeasonStart(card){const text=cleanText(card?.version),fullYear=text.match(/(?:18|19|20)\d{2}/);if(fullYear)return Number(fullYear[0]);const shortSeason=text.match(/(?:^|\D)(\d{2})\s*[-–—/]\s*(\d{2})(?:\D|$)/);if(!shortSeason)return Number.MAX_SAFE_INTEGER;const start=Number(shortSeason[1]),current=Number(String(new Date().getFullYear()).slice(-2));return start<=current+1?2000+start:1900+start}
 function compareCardSeason(a,b){return cardSeasonStart(a)-cardSeasonStart(b)||compareText(club(a.clubId)?.nameOriginal,club(b.clubId)?.nameOriginal)||compareText(a.version,b.version)||compareText(a.id,b.id)}
 function normalizedName(value=''){return cleanText(value).toLocaleLowerCase().replace(/[^\p{L}\p{N}]/gu,'')}
 function esc(value=''){return String(value).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}
