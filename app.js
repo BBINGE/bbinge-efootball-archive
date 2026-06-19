@@ -75,4 +75,6 @@ $$('[data-sort]').forEach(th=>th.onclick=()=>{const key=th.dataset.sort;if(state
 $('#backupButton').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(db,null,2)],{type:'application/json'}));a.download=`football-archive-${new Date().toISOString().slice(0,10)}.json`;a.click();URL.revokeObjectURL(a.href)};
 $('#restoreInput').onchange=async e=>{try{const next=JSON.parse(await e.target.files[0].text());if(!next.persons||!next.cards||!next.clubs||!next.leagues)throw new Error();db=next;persist();toast('백업을 복원했습니다.')}catch{alert('올바른 Football Archive 백업 파일이 아닙니다.')}e.target.value=''};
 function toast(message){const el=$('#toast');el.textContent=message;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),1800)}
+function focusSpotlight(){const panel=$('#spotlight');panel.scrollIntoView({behavior:'smooth',block:'start'});panel.classList.remove('is-entering');requestAnimationFrame(()=>{void panel.offsetWidth;panel.classList.add('is-entering');setTimeout(()=>panel.classList.remove('is-entering'),1100)})}
+document.addEventListener('click',event=>{const row=event.target.closest('[data-row-id]');if(row&&!event.target.closest('[data-edit-card]'))focusSpotlight()});
 render();
