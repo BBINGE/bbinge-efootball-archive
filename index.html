@@ -6,14 +6,16 @@
   <meta name="theme-color" content="#07183f">
   <title>MY FOOTBALL ARCHIVE</title>
   <link rel="icon" type="image/png" href="assets/haji-favicon.png">
-  <link rel="stylesheet" href="styles.css?v=20260620-2">
-  <link rel="stylesheet" href="dense-table.css?v=20260620-2">
+  <link rel="stylesheet" href="styles.css?v=20260620-3">
+  <link rel="stylesheet" href="dense-table.css?v=20260620-3">
+  <link rel="stylesheet" href="cloud.css?v=20260620-3">
 </head>
 <body>
   <header class="topbar">
     <a class="brand" href="#"><img src="assets/haji-favicon.png" alt="하지"><span><b>MY FOOTBALL</b><small>PERSONAL ARCHIVE</small></span></a>
     <nav><button class="nav-tab active">PLAYERS</button><button class="nav-tab" id="manageMasters">LEAGUES & CLUBS</button></nav>
     <div class="top-actions">
+      <button class="button cloud-status" id="cloudStatus" type="button" title="클라우드 동기화 상태">CLOUD</button>
       <button class="button quiet" id="backupButton">BACKUP</button>
       <label class="button quiet file-label">RESTORE<input id="restoreInput" type="file" accept="application/json"></label>
       <button class="button primary" id="addCardButton">+ ADD CARD</button>
@@ -115,7 +117,45 @@
   <dialog id="leagueDialog"><form id="leagueForm"><input type="hidden" name="editId"><div class="dialog-head"><div><p class="overline blue">MASTER DATA</p><h3 id="leagueFormTitle">리그 등록</h3></div><button type="button" class="close-button" data-close="leagueDialog">×</button></div><div class="form-grid"><label>리그명 <small>한글</small><input name="nameKo" required placeholder="프리미어리그"></label><label>League name <small>원어</small><input name="nameOriginal" required placeholder="Premier League"></label><label>국가<input name="country" required placeholder="England"></label><label>대표 색상<input name="color" type="color" value="#4b176f"></label><label class="full">로고 URL<input name="logo" type="url" placeholder="https://..."></label></div><div class="dialog-actions"><span></span><span></span><button type="button" class="button quiet" data-close="leagueDialog">취소</button><button class="button primary">저장</button></div></form></dialog>
   <dialog id="clubDialog"><form id="clubForm"><input type="hidden" name="editId"><div class="dialog-head"><div><p class="overline blue">MASTER DATA</p><h3 id="clubFormTitle">팀 등록</h3></div><button type="button" class="close-button" data-close="clubDialog">×</button></div><div class="form-grid"><label>팀명 <small>한글</small><input name="nameKo" required placeholder="레알 마드리드"></label><label>Club name <small>원어</small><input name="nameOriginal" required placeholder="Real Madrid Club de Fútbol"></label><label class="full">소속 리그<select name="leagueId" id="clubLeagueSelect" required></select></label><label>대표 색상<input name="color" type="color" value="#163f92"></label><label>로고 URL<input name="logo" type="url" placeholder="https://..."></label></div><div class="dialog-actions"><span></span><span></span><button type="button" class="button quiet" data-close="clubDialog">취소</button><button class="button primary">저장</button></div></form></dialog>
   <dialog id="mastersDialog" class="wide-dialog"><div class="dialog-head"><div><p class="overline blue">MASTER DATA</p><h3>리그와 팀 관리</h3></div><button type="button" class="close-button" data-close="mastersDialog">×</button></div><div class="master-columns"><section><div class="master-title"><b>LEAGUES · A–Z</b><button class="button quiet" data-switch-dialog="leagueDialog">+ 추가</button></div><div id="leagueManager"></div></section><section><div class="master-title"><b>CLUBS · A–Z</b><button class="button quiet" data-switch-dialog="clubDialog">+ 추가</button></div><select id="masterLeagueFilter" class="master-filter"></select><div id="clubManager"></div></section></div></dialog>
+  <div class="auth-gate hidden" id="authGate">
+    <form class="auth-card" id="authForm">
+      <img src="assets/haji-favicon.png" alt="MY FOOTBALL">
+      <p class="overline blue">PRIVATE ARCHIVE</p>
+      <h2>MY FOOTBALL 로그인</h2>
+      <p>등록한 전용 계정으로 로그인하면 PC와 모바일에서 같은 기록을 불러옵니다.</p>
+      <label>이메일<input id="authEmail" type="email" autocomplete="username" required></label>
+      <label>비밀번호<input id="authPassword" type="password" autocomplete="current-password" required></label>
+      <button class="button primary" type="submit">로그인</button>
+      <span class="auth-message" id="authMessage"></span>
+    </form>
+  </div>
+
+  <dialog id="cloudMigrationDialog" class="cloud-dialog">
+    <p class="overline blue">FIRST CLOUD SYNC</p>
+    <h3>이 PC의 기록을 클라우드에 올릴까요?</h3>
+    <p id="migrationSummary"></p>
+    <div class="cloud-warning">클라우드가 비어 있을 때만 표시됩니다. 업로드가 끝나도 현재 브라우저 데이터와 JSON 백업은 삭제하지 않습니다.</div>
+    <div class="migration-actions">
+      <button class="button quiet" id="cloudSignOut" type="button">다른 계정으로 로그인</button>
+      <button class="button primary" id="migrateLocalData" type="button">현재 PC 데이터 업로드</button>
+    </div>
+    <span class="auth-message" id="migrationMessage"></span>
+  </dialog>
+
+  <dialog id="cloudMenuDialog" class="cloud-dialog compact-dialog">
+    <p class="overline blue">CLOUD STATUS</p>
+    <h3 id="cloudMenuTitle">동기화됨</h3>
+    <p id="cloudMenuText"></p>
+    <div class="migration-actions">
+      <button class="button quiet" id="cloudReload" type="button">클라우드에서 다시 불러오기</button>
+      <button class="button quiet" id="cloudLogout" type="button">로그아웃</button>
+    </div>
+    <button class="close-button cloud-menu-close" type="button" aria-label="닫기">×</button>
+  </dialog>
+
   <div id="toast" role="status"></div>
-  <script src="app.js?v=20260620-2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="cloud.js?v=20260620-3"></script>
+  <script src="app.js?v=20260620-3"></script>
 </body>
 </html>

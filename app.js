@@ -31,7 +31,7 @@ let existingPhoto='';
 let masterLeagueId='';
 const $=s=>document.querySelector(s);const $$=s=>[...document.querySelectorAll(s)];
 function load(){try{const parsed=JSON.parse(localStorage.getItem(STORAGE_KEY));if(parsed?.persons&&parsed?.cards){parsed.leagues.forEach(l=>cleanFields(l,['nameKo','nameOriginal','country','logo']));parsed.clubs.forEach(c=>cleanFields(c,['nameKo','nameOriginal','logo']));parsed.persons.forEach(p=>{cleanFields(p,['nameKo','nameOriginal','nationalityKo','nationalityOriginal']);if(!p.careerStatus)p.careerStatus='active'});parsed.cards.forEach(card=>{delete card.season;card.version=cleanText(card.version);if(!Array.isArray(card.statEntries)||!card.statEntries.length)card.statEntries=[{id:uid('stat'),label:'기존 기록',appearances:statNumber(card.appearances),goals:statNumber(card.goals),assists:statNumber(card.assists),order:1}];card.statEntries.sort((a,b)=>(Number(a.order)||0)-(Number(b.order)||0));const currentIndex=Math.max(0,card.statEntries.findIndex(entry=>entry.isCurrent));card.statEntries.forEach((entry,index)=>{entry.label=cleanText(entry.label)||`기록 ${index+1}`;entry.order=index+1;entry.appearances=statNumber(entry.appearances);entry.goals=statNumber(entry.goals);entry.assists=statNumber(entry.assists);entry.isCurrent=index===currentIndex})});return parsed}}catch{}const fresh=structuredClone(seed);fresh.cards.forEach(card=>card.statEntries=[{id:uid('stat'),label:'기존 기록',appearances:statNumber(card.appearances),goals:statNumber(card.goals),assists:statNumber(card.assists),order:1,isCurrent:true}]);return fresh}
-function persist(){localStorage.setItem(STORAGE_KEY,JSON.stringify(db));render()}
+function persist(){localStorage.setItem(STORAGE_KEY,JSON.stringify(db));render();window.FootballCloud?.scheduleSave()}
 function uid(prefix){return `${prefix}_${Date.now().toString(36)}${Math.random().toString(36).slice(2,6)}`}
 function cleanText(value=''){return String(value??'').normalize('NFKC').trim().replace(/\s+/g,' ')}
 function cleanFields(item,keys){keys.forEach(key=>{if(key in item)item[key]=cleanText(item[key])});return item}
@@ -103,4 +103,4 @@ careerStatusObserver.observe($('#playerTable'),{childList:true});
 function focusSpotlight(){const panel=$('#spotlight');panel.scrollIntoView({behavior:'smooth',block:'start'});panel.classList.remove('is-entering');requestAnimationFrame(()=>{void panel.offsetWidth;panel.classList.add('is-entering');setTimeout(()=>panel.classList.remove('is-entering'),1450)})}
 document.addEventListener('click',event=>{const row=event.target.closest('[data-row-id]');if(row&&!event.target.closest('[data-edit-card]'))focusSpotlight()});
 $('#detailPhoto').addEventListener('error',event=>{event.currentTarget.removeAttribute('src');$('#photoPlaceholder').classList.remove('hidden');$('#photoPlaceholder').innerHTML='IMAGE LINK<br>UNAVAILABLE'});
-render();applySidebarState();
+render();applySidebarState();window.FootballCloud?.init();
