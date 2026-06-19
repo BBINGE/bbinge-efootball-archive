@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#07183f">
+  <title>MY FOOTBALL ARCHIVE</title>
+  <link rel="icon" href="assets/mark.svg">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="dense-table.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#"><img src="assets/mark.svg" alt=""><span><b>MY FOOTBALL</b><small>PERSONAL ARCHIVE</small></span></a>
+    <nav><button class="nav-tab active">PLAYERS</button><button class="nav-tab" id="manageMasters">LEAGUES & CLUBS</button></nav>
+    <div class="top-actions">
+      <button class="button quiet" id="backupButton">BACKUP</button>
+      <label class="button quiet file-label">RESTORE<input id="restoreInput" type="file" accept="application/json"></label>
+      <button class="button primary" id="addCardButton">+ ADD CARD</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="spotlight" id="spotlight">
+      <div class="spotlight-copy">
+        <p class="overline" id="detailOverline">FEATURED PLAYER</p>
+        <div class="detail-club" id="detailClub"></div>
+        <h1 id="detailNameKo">선수를 선택하세요</h1>
+        <p class="original-name" id="detailNameOriginal">목록에서 선수를 클릭하면 통산 기록이 펼쳐집니다.</p>
+        <div class="detail-meta" id="detailMeta"></div>
+        <div class="detail-stats" id="detailStats"></div>
+        <div class="variant-tabs" id="variantTabs"></div>
+      </div>
+      <div class="spotlight-art">
+        <span class="shirt-number" id="detailNumber">10</span>
+        <div class="rings"></div>
+        <img id="detailPhoto" alt="선수 사진">
+        <div class="photo-placeholder" id="photoPlaceholder">PLAYER<br>PORTRAIT</div>
+      </div>
+    </section>
+
+    <section class="dashboard-strip" id="dashboardStrip"></section>
+
+    <section class="app-shell">
+      <aside class="side-panel">
+        <div class="side-heading"><span>COMPETITIONS</span><button data-open="leagueDialog">+</button></div>
+        <button class="filter-link active" data-league="all"><span class="mini-mark all-mark">ALL</span><span>전체 리그</span><b id="allLeagueCount">0</b></button>
+        <div id="leagueFilters"></div>
+        <div class="side-heading clubs-heading"><span>CLUBS</span><button data-open="clubDialog">+</button></div>
+        <div id="clubFilters"></div>
+      </aside>
+
+      <section class="database">
+        <div class="database-title">
+          <div><p class="overline blue">DATABASE</p><h2>선수 아카이브</h2><p>카드별 기록과 한 선수의 통합 기록을 자유롭게 오가세요.</p></div>
+          <div class="mode-switch"><button class="active" data-mode="aggregate">선수 통산 순위</button><button data-mode="cards">카드 순위</button></div>
+        </div>
+        <div class="controls">
+          <label class="search-box"><span>⌕</span><input id="searchInput" placeholder="선수, 팀, 리그, 국적 검색"></label>
+          <select id="positionFilter"><option value="all">전체 포지션</option><option>GK</option><option>CB</option><option>LB</option><option>RB</option><option>DMF</option><option>CMF</option><option>AMF</option><option>LWF</option><option>RWF</option><option>SS</option><option>CF</option></select>
+          <select id="seasonFilter"><option value="all">전체 분기</option></select>
+        </div>
+        <div class="ranking-hint">열 제목을 누르면 해당 기록으로 정렬됩니다. <b id="sortDescription">공격포인트 높은 순</b></div>
+        <div class="table-frame">
+          <table>
+            <colgroup><col class="col-rank"><col class="col-no"><col class="col-player"><col class="col-nation"><col class="col-birth"><col class="col-age"><col class="col-pos"><col class="col-league"><col class="col-club"><col class="col-stat"><col class="col-stat"><col class="col-stat"><col class="col-stat"><col class="col-rate"><col class="col-rate"><col class="col-rate"><col class="col-action"></colgroup>
+            <thead><tr><th>#</th><th>NO.</th><th>PLAYER</th><th>NATION</th><th>BIRTH</th><th>AGE</th><th>POS</th><th>LEAGUE</th><th>CLUB</th><th class="sortable" data-sort="appearances">APP <i></i></th><th class="sortable" data-sort="goals">G <i></i></th><th class="sortable" data-sort="assists">A <i></i></th><th class="sortable active" data-sort="contributions">G+A <i>↓</i></th><th class="sortable" data-sort="contributionRate">G+A/M <i></i></th><th class="sortable" data-sort="goalRate">G/M <i></i></th><th class="sortable" data-sort="assistRate">A/M <i></i></th><th></th></tr></thead>
+            <tbody id="playerTable"></tbody>
+          </table>
+        </div>
+        <div class="empty hidden" id="emptyState"><b>조건에 맞는 선수가 없습니다.</b><span>새로운 카드를 등록하거나 필터를 바꿔보세요.</span><button class="button primary" id="emptyAdd">+ ADD CARD</button></div>
+      </section>
+    </section>
+  </main>
+
+  <dialog id="cardDialog" class="wide-dialog">
+    <form id="cardForm">
+      <div class="dialog-head"><div><p class="overline blue">PLAYER CARD</p><h3 id="cardDialogTitle">새 카드 등록</h3></div><button type="button" class="close-button" data-close="cardDialog">×</button></div>
+      <input type="hidden" name="cardId">
+      <section class="form-section">
+        <div class="section-label"><b>01</b><span>선수 연결</span></div>
+        <div class="form-content">
+          <label class="full">기존 통합 선수에 연결 <small>같은 선수의 다른 팀 버전이면 선택하세요.</small><select name="personId" id="personSelect"><option value="new">+ 새로운 선수 생성</option></select></label>
+          <div class="form-grid person-fields" id="personFields">
+            <label>선수 이름 <small>한글</small><input name="nameKo" required placeholder="크리스티아누 호날두"></label>
+            <label>Player name <small>원어</small><input name="nameOriginal" required placeholder="Cristiano Ronaldo dos Santos Aveiro"></label>
+            <label>국적 <small>한글</small><input name="nationalityKo" required placeholder="포르투갈"></label>
+            <label>Nationality <small>원어</small><input name="nationalityOriginal" required placeholder="Portugal"></label>
+            <label>생년월일<input name="birthDate" type="date" required></label>
+            <label>주 포지션<select name="position" required><option value="">선택</option><option>GK</option><option>CB</option><option>LB</option><option>RB</option><option>DMF</option><option>CMF</option><option>AMF</option><option>LWF</option><option>RWF</option><option>SS</option><option>CF</option></select></label>
+          </div>
+        </div>
+      </section>
+      <section class="form-section">
+        <div class="section-label"><b>02</b><span>카드 버전</span></div>
+        <div class="form-content form-grid">
+          <label class="full">소속팀<select name="clubId" id="cardClubSelect" required></select></label>
+          <label>카드명 / 버전<input name="version" required placeholder="Real Madrid 2013-14"></label>
+          <label>분기<input name="season" required placeholder="2025-26 Q1"></label>
+          <label>등번호<input name="shirtNumber" type="number" min="0" max="999" required></label>
+          <label>카드 포지션<select name="cardPosition"><option value="">주 포지션 사용</option><option>GK</option><option>CB</option><option>LB</option><option>RB</option><option>DMF</option><option>CMF</option><option>AMF</option><option>LWF</option><option>RWF</option><option>SS</option><option>CF</option></select></label>
+          <label class="full">누끼 사진 URL <small>PNG/WebP 권장</small><input name="photoUrl" type="url" placeholder="https://..."></label>
+          <label class="full upload-box">또는 사진 파일 업로드<input name="photoFile" type="file" accept="image/png,image/jpeg,image/webp"><span id="uploadStatus">클릭해서 사진 선택 · 자동 축소 저장</span></label>
+        </div>
+      </section>
+      <section class="form-section">
+        <div class="section-label"><b>03</b><span>시뮬레이션 기록</span></div>
+        <div class="form-content form-grid stats-inputs">
+          <label>출전<input name="appearances" type="number" min="0" value="0" required></label>
+          <label>득점<input name="goals" type="number" min="0" value="0" required></label>
+          <label>도움<input name="assists" type="number" min="0" value="0" required></label>
+          <div class="live-formula full" id="formulaPreview"></div>
+        </div>
+      </section>
+      <div class="dialog-actions"><button type="button" class="danger hidden" id="deleteCard">카드 삭제</button><span></span><button type="button" class="button quiet" data-close="cardDialog">취소</button><button type="submit" class="button primary">카드 저장</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="leagueDialog"><form id="leagueForm"><input type="hidden" name="editId"><div class="dialog-head"><div><p class="overline blue">MASTER DATA</p><h3 id="leagueFormTitle">리그 등록</h3></div><button type="button" class="close-button" data-close="leagueDialog">×</button></div><div class="form-grid"><label>리그명 <small>한글</small><input name="nameKo" required placeholder="프리미어리그"></label><label>League name <small>원어</small><input name="nameOriginal" required placeholder="Premier League"></label><label>국가<input name="country" required placeholder="England"></label><label>대표 색상<input name="color" type="color" value="#4b176f"></label><label class="full">로고 URL<input name="logo" type="url" placeholder="https://..."></label></div><div class="dialog-actions"><span></span><span></span><button type="button" class="button quiet" data-close="leagueDialog">취소</button><button class="button primary">저장</button></div></form></dialog>
+  <dialog id="clubDialog"><form id="clubForm"><input type="hidden" name="editId"><div class="dialog-head"><div><p class="overline blue">MASTER DATA</p><h3 id="clubFormTitle">팀 등록</h3></div><button type="button" class="close-button" data-close="clubDialog">×</button></div><div class="form-grid"><label>팀명 <small>한글</small><input name="nameKo" required placeholder="레알 마드리드"></label><label>Club name <small>원어</small><input name="nameOriginal" required placeholder="Real Madrid Club de Fútbol"></label><label class="full">소속 리그<select name="leagueId" id="clubLeagueSelect" required></select></label><label>대표 색상<input name="color" type="color" value="#163f92"></label><label>로고 URL<input name="logo" type="url" placeholder="https://..."></label></div><div class="dialog-actions"><span></span><span></span><button type="button" class="button quiet" data-close="clubDialog">취소</button><button class="button primary">저장</button></div></form></dialog>
+  <dialog id="mastersDialog" class="wide-dialog"><div class="dialog-head"><div><p class="overline blue">MASTER DATA</p><h3>리그와 팀 관리</h3></div><button type="button" class="close-button" data-close="mastersDialog">×</button></div><div class="master-columns"><section><div class="master-title"><b>LEAGUES</b><button class="button quiet" data-switch-dialog="leagueDialog">+ 추가</button></div><div id="leagueManager"></div></section><section><div class="master-title"><b>CLUBS</b><button class="button quiet" data-switch-dialog="clubDialog">+ 추가</button></div><div id="clubManager"></div></section></div></dialog>
+  <div id="toast" role="status"></div>
+  <script src="app.js"></script>
+</body>
+</html>
