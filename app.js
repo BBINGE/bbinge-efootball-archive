@@ -25,7 +25,7 @@ const seed={
 };
 
 let db=load();
-let state={mode:'aggregate',leagueId:'all',clubId:'all',sort:'default',direction:'asc',selected:{type:'card',id:'cruyff-ajax'},detailCardId:'cruyff-ajax'};
+let state={mode:'aggregate',leagueId:'all',clubId:'all',sort:'default',direction:'asc',selected:{type:'card',id:'cruyff-ajax'},detailCardId:'cruyff-ajax',sidebarCollapsed:localStorage.getItem('my-football-sidebar-collapsed')==='1'};
 let pendingPhoto='';
 let existingPhoto='';
 let masterLeagueId='';
@@ -80,6 +80,8 @@ $('#deleteCard').onclick=()=>{const id=$('#cardForm [name=cardId]').value;if(!id
 $('#leagueForm').onsubmit=e=>{e.preventDefault();const item=Object.fromEntries(new FormData(e.currentTarget)),index=db.leagues.findIndex(x=>x.id===item.editId);item.id=item.editId||uid('league');delete item.editId;if(index>=0)db.leagues[index]=item;else db.leagues.push(item);masterLeagueId=item.id;persist();e.currentTarget.reset();$('#leagueDialog').close();toast(index>=0?'리그를 수정했습니다.':'리그를 등록했습니다.')};
 $('#clubForm').onsubmit=e=>{e.preventDefault();const item=Object.fromEntries(new FormData(e.currentTarget)),index=db.clubs.findIndex(x=>x.id===item.editId);item.id=item.editId||uid('club');delete item.editId;if(index>=0)db.clubs[index]=item;else db.clubs.push(item);persist();e.currentTarget.reset();$('#clubDialog').close();toast(index>=0?'팀을 수정했습니다.':'팀을 등록했습니다.')};
 $('#addCardButton').onclick=()=>openCard();$('#emptyAdd').onclick=()=>openCard();$('#manageMasters').onclick=()=>$('#mastersDialog').showModal();
+function applySidebarState(){const shell=$('.app-shell'),button=$('#sidebarToggle');shell.classList.toggle('sidebar-collapsed',state.sidebarCollapsed);button.textContent=state.sidebarCollapsed?'›':'‹';button.setAttribute('aria-expanded',String(!state.sidebarCollapsed));button.title=state.sidebarCollapsed?'리그 패널 펼치기':'리그 패널 접기'}
+$('#sidebarToggle').onclick=()=>{state.sidebarCollapsed=!state.sidebarCollapsed;localStorage.setItem('my-football-sidebar-collapsed',state.sidebarCollapsed?'1':'0');applySidebarState()};
 $$('[data-open]').forEach(b=>b.onclick=()=>b.dataset.open==='leagueDialog'?openLeague():openClub());$$('[data-close]').forEach(b=>b.onclick=()=>$('#'+b.dataset.close).close());$$('[data-switch-dialog]').forEach(b=>b.onclick=()=>b.dataset.switchDialog==='leagueDialog'?openLeague():openClub());
 $$('[data-mode]').forEach(b=>b.onclick=()=>{state.mode=b.dataset.mode;$$('[data-mode]').forEach(x=>x.classList.toggle('active',x===b));renderTable()});
 ['searchInput','positionFilter'].forEach(id=>$(`#${id}`).addEventListener(id==='searchInput'?'input':'change',renderTable));
@@ -96,4 +98,4 @@ careerStatusObserver.observe($('#playerTable'),{childList:true});
 function focusSpotlight(){const panel=$('#spotlight');panel.scrollIntoView({behavior:'smooth',block:'start'});panel.classList.remove('is-entering');requestAnimationFrame(()=>{void panel.offsetWidth;panel.classList.add('is-entering');setTimeout(()=>panel.classList.remove('is-entering'),1450)})}
 document.addEventListener('click',event=>{const row=event.target.closest('[data-row-id]');if(row&&!event.target.closest('[data-edit-card]'))focusSpotlight()});
 $('#detailPhoto').addEventListener('error',event=>{event.currentTarget.removeAttribute('src');$('#photoPlaceholder').classList.remove('hidden');$('#photoPlaceholder').innerHTML='IMAGE LINK<br>UNAVAILABLE'});
-render();
+render();applySidebarState();

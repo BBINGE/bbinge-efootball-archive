@@ -6,8 +6,8 @@
   <meta name="theme-color" content="#07183f">
   <title>MY FOOTBALL ARCHIVE</title>
   <link rel="icon" type="image/png" href="assets/haji-favicon.png">
-  <link rel="stylesheet" href="styles.css?v=20260619-5">
-  <link rel="stylesheet" href="dense-table.css?v=20260619-5">
+  <link rel="stylesheet" href="styles.css?v=20260619-6">
+  <link rel="stylesheet" href="dense-table.css?v=20260619-6">
 </head>
 <body>
   <header class="topbar">
@@ -43,7 +43,7 @@
 
     <section class="app-shell">
       <aside class="side-panel">
-        <div class="side-heading"><span>COMPETITIONS</span><button data-open="leagueDialog">+</button></div>
+        <div class="side-heading"><span>COMPETITIONS</span><div class="side-actions"><button id="sidebarToggle" type="button" aria-expanded="true" title="리그 패널 접기">‹</button><button data-open="leagueDialog" title="리그 추가">+</button></div></div>
         <button class="filter-link active" data-league="all"><span class="mini-mark all-mark">ALL</span><span>전체 리그</span><b id="allLeagueCount">0</b></button>
         <div id="leagueFilters"></div>
       </aside>
@@ -116,6 +116,6 @@
   <dialog id="clubDialog"><form id="clubForm"><input type="hidden" name="editId"><div class="dialog-head"><div><p class="overline blue">MASTER DATA</p><h3 id="clubFormTitle">팀 등록</h3></div><button type="button" class="close-button" data-close="clubDialog">×</button></div><div class="form-grid"><label>팀명 <small>한글</small><input name="nameKo" required placeholder="레알 마드리드"></label><label>Club name <small>원어</small><input name="nameOriginal" required placeholder="Real Madrid Club de Fútbol"></label><label class="full">소속 리그<select name="leagueId" id="clubLeagueSelect" required></select></label><label>대표 색상<input name="color" type="color" value="#163f92"></label><label>로고 URL<input name="logo" type="url" placeholder="https://..."></label></div><div class="dialog-actions"><span></span><span></span><button type="button" class="button quiet" data-close="clubDialog">취소</button><button class="button primary">저장</button></div></form></dialog>
   <dialog id="mastersDialog" class="wide-dialog"><div class="dialog-head"><div><p class="overline blue">MASTER DATA</p><h3>리그와 팀 관리</h3></div><button type="button" class="close-button" data-close="mastersDialog">×</button></div><div class="master-columns"><section><div class="master-title"><b>LEAGUES · A–Z</b><button class="button quiet" data-switch-dialog="leagueDialog">+ 추가</button></div><div id="leagueManager"></div></section><section><div class="master-title"><b>CLUBS · A–Z</b><button class="button quiet" data-switch-dialog="clubDialog">+ 추가</button></div><select id="masterLeagueFilter" class="master-filter"></select><div id="clubManager"></div></section></div></dialog>
   <div id="toast" role="status"></div>
-  <script src="app.js?v=20260619-5"></script>
+  <script src="app.js?v=20260619-6"></script>
 </body>
 </html>
