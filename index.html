@@ -6,8 +6,8 @@
   <meta name="theme-color" content="#07183f">
   <title>MY FOOTBALL ARCHIVE</title>
   <link rel="icon" type="image/png" href="assets/haji-favicon.png">
-  <link rel="stylesheet" href="styles.css?v=20260619-3">
-  <link rel="stylesheet" href="dense-table.css?v=20260619-3">
+  <link rel="stylesheet" href="styles.css?v=20260619-4">
+  <link rel="stylesheet" href="dense-table.css?v=20260619-4">
 </head>
 <body>
   <header class="topbar">
@@ -57,11 +57,11 @@
           <label class="search-box"><span>⌕</span><input id="searchInput" placeholder="선수, 팀, 리그, 국적 검색"></label>
           <select id="positionFilter"><option value="all">전체 포지션</option><option>GK</option><option>CB</option><option>LB</option><option>RB</option><option>DMF</option><option>CMF</option><option>AMF</option><option>LWF</option><option>RWF</option><option>SS</option><option>CF</option></select>
         </div>
-        <div class="ranking-hint">열 제목을 누르면 해당 기록으로 정렬됩니다. <b id="sortDescription">공격포인트 높은 순</b></div>
+        <div class="ranking-hint"><button type="button" id="defaultSortButton">기본 정렬</button> · 열 제목을 누르면 해당 기록으로 정렬됩니다. <b id="sortDescription">리그 → 팀 → 포지션 → 선수 → 현역/은퇴</b></div>
         <div class="table-frame">
           <table>
             <colgroup><col class="col-rank"><col class="col-no"><col class="col-player"><col class="col-nation"><col class="col-birth"><col class="col-age"><col class="col-pos"><col class="col-league"><col class="col-club"><col class="col-stat"><col class="col-stat"><col class="col-stat"><col class="col-stat"><col class="col-rate"><col class="col-rate"><col class="col-rate"><col class="col-action"></colgroup>
-            <thead><tr><th>#</th><th>NO.</th><th>PLAYER</th><th>NATION</th><th>BIRTH</th><th>AGE</th><th>POS</th><th>LEAGUE</th><th>CLUB</th><th class="sortable" data-sort="appearances">APP <i></i></th><th class="sortable" data-sort="goals">G <i></i></th><th class="sortable" data-sort="assists">A <i></i></th><th class="sortable active" data-sort="contributions">G+A <i>↓</i></th><th class="sortable" data-sort="contributionRate">G+A/M <i></i></th><th class="sortable" data-sort="goalRate">G/M <i></i></th><th class="sortable" data-sort="assistRate">A/M <i></i></th><th></th></tr></thead>
+            <thead><tr><th>#</th><th>NO.</th><th>PLAYER</th><th>NATION</th><th>BIRTH</th><th>AGE</th><th>POS</th><th>LEAGUE</th><th>CLUB</th><th class="sortable" data-sort="appearances">APP <i></i></th><th class="sortable" data-sort="goals">G <i></i></th><th class="sortable" data-sort="assists">A <i></i></th><th class="sortable" data-sort="contributions">G+A <i></i></th><th class="sortable" data-sort="contributionRate">G+A/M <i></i></th><th class="sortable" data-sort="goalRate">G/M <i></i></th><th class="sortable" data-sort="assistRate">A/M <i></i></th><th></th></tr></thead>
             <tbody id="playerTable"></tbody>
           </table>
         </div>
@@ -85,6 +85,7 @@
             <label>Nationality <small>원어</small><input name="nationalityOriginal" required placeholder="Portugal"></label>
             <label>생년월일<input name="birthDate" type="date" required></label>
             <label>주 포지션<select name="position" required><option value="">선택</option><option>GK</option><option>CB</option><option>LB</option><option>RB</option><option>DMF</option><option>CMF</option><option>AMF</option><option>LWF</option><option>RWF</option><option>SS</option><option>CF</option></select></label>
+            <label class="full">선수 상태<select name="careerStatus" required><option value="active">현역</option><option value="retired">은퇴</option></select></label>
           </div>
         </div>
       </section>
@@ -100,12 +101,11 @@
         </div>
       </section>
       <section class="form-section">
-        <div class="section-label"><b>03</b><span>시뮬레이션 기록</span></div>
-        <div class="form-content form-grid stats-inputs">
-          <label>출전<input name="appearances" type="number" min="0" value="0" required></label>
-          <label>득점<input name="goals" type="number" min="0" value="0" required></label>
-          <label>도움<input name="assists" type="number" min="0" value="0" required></label>
-          <div class="live-formula full" id="formulaPreview"></div>
+        <div class="section-label"><b>03</b><span>스탯</span></div>
+        <div class="form-content">
+          <div id="statEntryList"></div>
+          <button type="button" class="add-stat-entry" id="addStatEntry">+ 기록 구간 추가</button>
+          <div class="live-formula" id="formulaPreview"></div>
         </div>
       </section>
       <div class="dialog-actions"><button type="button" class="danger hidden" id="deleteCard">카드 삭제</button><span></span><button type="button" class="button quiet" data-close="cardDialog">취소</button><button type="submit" class="button primary">카드 저장</button></div>
@@ -114,8 +114,8 @@
 
   <dialog id="leagueDialog"><form id="leagueForm"><input type="hidden" name="editId"><div class="dialog-head"><div><p class="overline blue">MASTER DATA</p><h3 id="leagueFormTitle">리그 등록</h3></div><button type="button" class="close-button" data-close="leagueDialog">×</button></div><div class="form-grid"><label>리그명 <small>한글</small><input name="nameKo" required placeholder="프리미어리그"></label><label>League name <small>원어</small><input name="nameOriginal" required placeholder="Premier League"></label><label>국가<input name="country" required placeholder="England"></label><label>대표 색상<input name="color" type="color" value="#4b176f"></label><label class="full">로고 URL<input name="logo" type="url" placeholder="https://..."></label></div><div class="dialog-actions"><span></span><span></span><button type="button" class="button quiet" data-close="leagueDialog">취소</button><button class="button primary">저장</button></div></form></dialog>
   <dialog id="clubDialog"><form id="clubForm"><input type="hidden" name="editId"><div class="dialog-head"><div><p class="overline blue">MASTER DATA</p><h3 id="clubFormTitle">팀 등록</h3></div><button type="button" class="close-button" data-close="clubDialog">×</button></div><div class="form-grid"><label>팀명 <small>한글</small><input name="nameKo" required placeholder="레알 마드리드"></label><label>Club name <small>원어</small><input name="nameOriginal" required placeholder="Real Madrid Club de Fútbol"></label><label class="full">소속 리그<select name="leagueId" id="clubLeagueSelect" required></select></label><label>대표 색상<input name="color" type="color" value="#163f92"></label><label>로고 URL<input name="logo" type="url" placeholder="https://..."></label></div><div class="dialog-actions"><span></span><span></span><button type="button" class="button quiet" data-close="clubDialog">취소</button><button class="button primary">저장</button></div></form></dialog>
-  <dialog id="mastersDialog" class="wide-dialog"><div class="dialog-head"><div><p class="overline blue">MASTER DATA</p><h3>리그와 팀 관리</h3></div><button type="button" class="close-button" data-close="mastersDialog">×</button></div><div class="master-columns"><section><div class="master-title"><b>LEAGUES</b><button class="button quiet" data-switch-dialog="leagueDialog">+ 추가</button></div><div id="leagueManager"></div></section><section><div class="master-title"><b>CLUBS</b><button class="button quiet" data-switch-dialog="clubDialog">+ 추가</button></div><div id="clubManager"></div></section></div></dialog>
+  <dialog id="mastersDialog" class="wide-dialog"><div class="dialog-head"><div><p class="overline blue">MASTER DATA</p><h3>리그와 팀 관리</h3></div><button type="button" class="close-button" data-close="mastersDialog">×</button></div><div class="master-columns"><section><div class="master-title"><b>LEAGUES · A–Z</b><button class="button quiet" data-switch-dialog="leagueDialog">+ 추가</button></div><div id="leagueManager"></div></section><section><div class="master-title"><b>CLUBS · A–Z</b><button class="button quiet" data-switch-dialog="clubDialog">+ 추가</button></div><select id="masterLeagueFilter" class="master-filter"></select><div id="clubManager"></div></section></div></dialog>
   <div id="toast" role="status"></div>
-  <script src="app.js?v=20260619-3"></script>
+  <script src="app.js?v=20260619-4"></script>
 </body>
 </html>
