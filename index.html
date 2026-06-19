@@ -58,7 +58,6 @@
         <div class="controls">
           <label class="search-box"><span>⌕</span><input id="searchInput" placeholder="선수, 팀, 리그, 국적 검색"></label>
           <select id="positionFilter"><option value="all">전체 포지션</option><option>GK</option><option>CB</option><option>LB</option><option>RB</option><option>DMF</option><option>CMF</option><option>AMF</option><option>LWF</option><option>RWF</option><option>SS</option><option>CF</option></select>
-          <select id="seasonFilter"><option value="all">전체 분기</option></select>
         </div>
         <div class="ranking-hint">열 제목을 누르면 해당 기록으로 정렬됩니다. <b id="sortDescription">공격포인트 높은 순</b></div>
         <div class="table-frame">
@@ -96,7 +95,6 @@
         <div class="form-content form-grid">
           <label class="full">소속팀<select name="clubId" id="cardClubSelect" required></select></label>
           <label>카드명 / 버전<input name="version" required placeholder="Real Madrid 2013-14"></label>
-          <label>분기<input name="season" required placeholder="2025-26 Q1"></label>
           <label>등번호<input name="shirtNumber" type="number" min="0" max="999" required></label>
           <label>카드 포지션<select name="cardPosition"><option value="">주 포지션 사용</option><option>GK</option><option>CB</option><option>LB</option><option>RB</option><option>DMF</option><option>CMF</option><option>AMF</option><option>LWF</option><option>RWF</option><option>SS</option><option>CF</option></select></label>
           <label class="full">누끼 사진 URL <small>PNG/WebP 권장</small><input name="photoUrl" type="url" placeholder="https://..."></label>
