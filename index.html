@@ -7,7 +7,7 @@
   <title>MY FOOTBALL ARCHIVE</title>
   <link rel="icon" type="image/png" href="assets/haji-favicon.png">
   <link rel="stylesheet" href="styles.css?v=20260620-3">
-  <link rel="stylesheet" href="dense-table.css?v=20260621-1">
+  <link rel="stylesheet" href="dense-table.css?v=20260621-2">
   <link rel="stylesheet" href="cloud.css?v=20260620-3">
 </head>
 <body>
@@ -53,7 +53,7 @@
       <section class="database">
         <div class="database-title">
           <div><p class="overline blue">DATABASE</p><h2>선수 아카이브</h2><p>카드별 기록과 한 선수의 통합 기록을 자유롭게 오가세요.</p></div>
-          <div class="database-actions"><button type="button" class="position-ranking-button" id="positionRankingButton">포지션 랭킹</button><div class="mode-switch"><button class="active" data-mode="aggregate">선수 통산 순위</button><button data-mode="cards">카드 순위</button></div></div>
+          <div class="database-actions"><button type="button" class="position-count-button" id="positionCountButton">포지션별 등록 선수</button><button type="button" class="position-ranking-button" id="positionRankingButton">포지션 랭킹</button><div class="mode-switch"><button class="active" data-mode="aggregate">선수 통산 순위</button><button data-mode="cards">카드 순위</button></div></div>
         </div>
         <div class="controls">
           <label class="search-box"><span>⌕</span><input id="searchInput" placeholder="선수, 팀, 리그, 국적 검색"></label>
@@ -83,6 +83,13 @@
     </div>
     <div class="position-ranking-summary" id="positionRankingSummary"></div>
     <div class="position-ranking-list" id="positionRankingList"></div>
+  </dialog>
+
+  <dialog id="positionCountDialog" class="wide-dialog position-count-dialog">
+    <div class="dialog-head"><div><p class="overline blue">SQUAD DISTRIBUTION</p><h3>포지션별 등록 선수</h3><p>선수의 주 포지션을 기준으로 중복 카드 없이 실제 등록 인원을 집계합니다.</p></div><button type="button" class="close-button" data-close="positionCountDialog">×</button></div>
+    <div class="position-count-total"><span>REGISTERED PLAYERS</span><b id="positionCountTotal">0</b><small>명</small></div>
+    <div class="position-count-grid" id="positionCountGrid"></div>
+    <p class="position-count-guide">포지션을 누르면 메인 선수표가 해당 포지션으로 바로 필터됩니다.</p>
   </dialog>
 
   <dialog id="cardDialog" class="wide-dialog">
@@ -169,6 +176,6 @@
   <div id="toast" role="status"></div>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="cloud.js?v=20260620-3"></script>
-  <script src="app.js?v=20260621-1"></script>
+  <script src="app.js?v=20260621-2"></script>
 </body>
 </html>
