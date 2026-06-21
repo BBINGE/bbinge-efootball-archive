@@ -103,7 +103,7 @@
           <div class="form-grid person-fields" id="personFields">
             <label>선수 이름 <small>한글</small><input name="nameKo" required placeholder="크리스티아누 호날두"></label>
             <label>Player name <small>원어</small><input name="nameOriginal" required placeholder="Cristiano Ronaldo dos Santos Aveiro"></label>
-            <label>국적 <small>한글</small><input name="nationalityKo" required placeholder="포르투갈"></label>
+            <label>국적 <small>한글 · 정식 국호</small><input name="nationalityKo" list="nationalityOptions" required placeholder="검색하거나 목록에서 선택"></label>
             <label>Nationality <small>원어</small><input name="nationalityOriginal" required placeholder="Portugal"></label>
             <label>생년월일<input name="birthDate" type="date" required></label>
             <label>주 포지션<select name="position" required><option value="">선택</option><option>GK</option><option>CB</option><option>LB</option><option>RB</option><option>DMF</option><option>CMF</option><option>LMF</option><option>RMF</option><option>AMF</option><option>LWF</option><option>RWF</option><option>SS</option><option>CF</option></select></label>
@@ -175,7 +175,9 @@
 
   <div id="toast" role="status"></div>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="cloud.js?v=20260620-3"></script>
-  <script src="app.js?v=20260621-2"></script>
+  <datalist id="nationalityOptions"></datalist>
+  <script src="countries.js?v=20260621-1"></script>
+  <script src="cloud.js?v=20260621-1"></script>
+  <script src="app.js?v=20260621-3"></script>
 </body>
 </html>

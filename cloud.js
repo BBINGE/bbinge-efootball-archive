@@ -81,6 +81,7 @@
       return;
     }
     const next=data.data;
+    const nationalityChanged=window.normalizeNationalityDatabase?.(next)||false;
     if(!next?.persons||!next?.cards||!next?.clubs||!next?.leagues)throw new Error('클라우드 데이터 형식이 올바르지 않습니다.');
     await hydratePhotoUrls(next);
     db=next;
@@ -89,6 +90,7 @@
     ready=true;
     render();
     setStatus('synced','SYNCED',`클라우드 동기화 완료 · revision ${cloudRevision}`);
+    if(nationalityChanged)scheduleSave();
   }
 
   async function migrateLocalArchive(){
