@@ -7,7 +7,7 @@
   <title>MY FOOTBALL ARCHIVE</title>
   <link rel="icon" type="image/png" href="assets/haji-favicon.png">
   <link rel="stylesheet" href="styles.css?v=20260620-3">
-  <link rel="stylesheet" href="dense-table.css?v=20260621-6">
+  <link rel="stylesheet" href="dense-table.css?v=20260621-7">
   <link rel="stylesheet" href="cloud.css?v=20260620-3">
 </head>
 <body>
@@ -108,7 +108,8 @@
             <label>생년월일<input name="birthDate" type="date" required></label>
             <label>주 포지션<select name="position" required><option value="">선택</option><option>GK</option><option>CB</option><option>LB</option><option>RB</option><option>DMF</option><option>CMF</option><option>LMF</option><option>RMF</option><option>AMF</option><option>LWF</option><option>RWF</option><option>SS</option><option>CF</option></select></label>
             <label class="full">선수 상태<select name="careerStatus" required><option value="active">현역</option><option value="retired">은퇴</option></select></label>
-            <label class="full divine-toggle"><input name="divine" type="checkbox"><span><i class="divine-toggle-mark">神</i>신으로 지정 <small>선수 이름 옆에 금빛 神 글자를 표시합니다.</small></span></label>
+            <label class="honor-toggle divine-toggle"><input name="divine" type="checkbox"><span><i class="divine-toggle-mark">神</i><b>신</b><small>금빛 神 글자</small></span></label>
+            <label class="honor-toggle ballon-toggle"><input name="ballonDor" type="checkbox"><span><i class="ballon-toggle-mark"><svg viewBox="0 0 64 88" aria-hidden="true"><path class="toggle-rays" d="M32 2v17M25 4v15M18 7v15M11 11v16M39 4v15M46 7v15M53 11v16M32 86V69M25 84V69M18 81V66M11 77V61M39 84V69M46 81V66M53 77V61"/><circle cx="32" cy="44" r="24"/><path class="toggle-seams" d="M32 29l9 7-3 11H26l-3-11 9-7zm-9 7-10-2m13 13-6 10m18-10 6 10m-3-21 10-2M20 57l-1 8m25-8 1 8"/></svg></i><b>발롱도르</b><small>수상 선수 표시</small></span></label>
           </div>
         </div>
       </section>
@@ -179,6 +180,6 @@
   <datalist id="nationalityOptions"></datalist>
   <script src="countries.js?v=20260621-1"></script>
   <script src="cloud.js?v=20260621-1"></script>
-  <script src="app.js?v=20260621-6"></script>
+  <script src="app.js?v=20260621-7"></script>
 </body>
 </html>
