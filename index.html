@@ -7,7 +7,7 @@
   <title>MY FOOTBALL ARCHIVE</title>
   <link rel="icon" type="image/png" href="assets/haji-favicon.png">
   <link rel="stylesheet" href="styles.css?v=20260620-3">
-  <link rel="stylesheet" href="dense-table.css?v=20260620-3">
+  <link rel="stylesheet" href="dense-table.css?v=20260621-1">
   <link rel="stylesheet" href="cloud.css?v=20260620-3">
 </head>
 <body>
@@ -53,7 +53,7 @@
       <section class="database">
         <div class="database-title">
           <div><p class="overline blue">DATABASE</p><h2>선수 아카이브</h2><p>카드별 기록과 한 선수의 통합 기록을 자유롭게 오가세요.</p></div>
-          <div class="mode-switch"><button class="active" data-mode="aggregate">선수 통산 순위</button><button data-mode="cards">카드 순위</button></div>
+          <div class="database-actions"><button type="button" class="position-ranking-button" id="positionRankingButton">포지션 랭킹</button><div class="mode-switch"><button class="active" data-mode="aggregate">선수 통산 순위</button><button data-mode="cards">카드 순위</button></div></div>
         </div>
         <div class="controls">
           <label class="search-box"><span>⌕</span><input id="searchInput" placeholder="선수, 팀, 리그, 국적 검색"></label>
@@ -71,6 +71,19 @@
       </section>
     </section>
   </main>
+
+  <dialog id="positionRankingDialog" class="wide-dialog position-ranking-dialog">
+    <div class="dialog-head"><div><p class="overline blue">POSITION RANKINGS</p><h3>포지션별 스탯 순위</h3><p>포지션과 기록을 선택해 선수 통산 또는 카드별 순위를 확인하세요.</p></div><button type="button" class="close-button" data-close="positionRankingDialog">×</button></div>
+    <div class="ranking-toolbar">
+      <select id="rankingPosition"><option>GK</option><option>CB</option><option>LB</option><option>RB</option><option>DMF</option><option>CMF</option><option>LMF</option><option>RMF</option><option>AMF</option><option>LWF</option><option>RWF</option><option>SS</option><option selected>CF</option></select>
+      <div class="mode-switch ranking-mode-switch"><button class="active" type="button" data-ranking-mode="aggregate">선수 통산</button><button type="button" data-ranking-mode="cards">카드</button></div>
+    </div>
+    <div class="ranking-stat-tabs" id="rankingStatTabs">
+      <button type="button" data-ranking-stat="appearances">출전</button><button type="button" data-ranking-stat="goals">득점</button><button type="button" data-ranking-stat="assists">도움</button><button type="button" class="active" data-ranking-stat="contributions">공격포인트</button><button type="button" data-ranking-stat="contributionRate">경기당 공격포인트</button><button type="button" data-ranking-stat="goalRate">경기당 골</button><button type="button" data-ranking-stat="assistRate">경기당 도움</button>
+    </div>
+    <div class="position-ranking-summary" id="positionRankingSummary"></div>
+    <div class="position-ranking-list" id="positionRankingList"></div>
+  </dialog>
 
   <dialog id="cardDialog" class="wide-dialog">
     <form id="cardForm">
@@ -156,6 +169,6 @@
   <div id="toast" role="status"></div>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="cloud.js?v=20260620-3"></script>
-  <script src="app.js?v=20260620-6"></script>
+  <script src="app.js?v=20260621-1"></script>
 </body>
 </html>
