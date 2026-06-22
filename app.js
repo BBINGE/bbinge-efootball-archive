@@ -53,8 +53,17 @@ function ballonDorBadge(p,klass=''){return p?.ballonDor?`<svg class="ballon-dor-
 function formatRate(value){return Number(value).toFixed(2)}
 function cardMatches(card){const c=club(card.clubId),l=league(c?.leagueId),p=person(card.personId),query=$('#searchInput').value.trim().toLocaleLowerCase(),position=$('#positionFilter').value;const haystack=[p?.nameKo,p?.nameOriginal,p?.nationalityKo,p?.nationalityOriginal,c?.nameKo,c?.nameOriginal,l?.nameKo,l?.nameOriginal,card.version].join(' ').toLocaleLowerCase();return(state.leagueId==='all'||l?.id===state.leagueId)&&(state.clubId==='all'||c?.id===state.clubId)&&(position==='all'||(card.cardPosition||p?.position)===position)&&(!query||haystack.includes(query))}
 const POSITION_ORDER=['GK','CB','LB','RB','DMF','CMF','LMF','RMF','AMF','LWF','RWF','SS','CF'];
-function rowSortMeta(row){if(row.type==='aggregate')return{league:'FA',club:'STANDARD',position:row.person.position,shirtNumber:9999,name:row.person.nameOriginal||'',status:row.person.careerStatus==='retired'?1:0};const card=row.card,c=club(card?.clubId),l=league(c?.leagueId);return{league:l?.nameOriginal||'',club:c?.nameOriginal||'',position:card?.cardPosition||row.person.position,shirtNumber:Number(card?.shirtNumber)||9999,name:row.person.nameOriginal||'',status:row.person.careerStatus==='retired'?1:0}}
-function defaultRowCompare(a,b){const am=rowSortMeta(a),bm=rowSortMeta(b);return compareText(am.league,bm.league)||compareText(am.club,bm.club)||(POSITION_ORDER.indexOf(am.position)-POSITION_ORDER.indexOf(bm.position))||(am.shirtNumber-bm.shirtNumber)||compareText(am.name,bm.name)||(am.status-bm.status)}
+function rowSortMeta(row){const p=row.person,birthDate=/^\d{4}-\d{2}-\d{2}$/.test(p.birthDate||'')?p.birthDate:'9999-12-31';if(row.type==='aggregate')return{league:'FA',club:'STANDARD',position:p.position,shirtNumber:9999,name:p.nameOriginal||'',status:p.careerStatus==='retired'?1:0,birthDate};const card=row.card,c=club(card?.clubId),l=league(c?.leagueId);return{league:l?.nameOriginal||'',club:c?.nameOriginal||'',position:card?.cardPosition||p.position,shirtNumber:Number(card?.shirtNumber)||9999,name:p.nameOriginal||'',status:p.careerStatus==='retired'?1:0,birthDate}}
+function defaultRowCompare(a,b){
+  const am=rowSortMeta(a),bm=rowSortMeta(b);
+  const baseOrder=compareText(am.league,bm.league)||compareText(am.club,bm.club)||(POSITION_ORDER.indexOf(am.position)-POSITION_ORDER.indexOf(bm.position))||(am.shirtNumber-bm.shirtNumber)||(am.status-bm.status);
+  if(baseOrder)return baseOrder;
+  if(am.status===1){
+    const birthOrder=am.birthDate.localeCompare(bm.birthDate);
+    if(birthOrder)return birthOrder;
+  }
+  return compareText(am.name,bm.name);
+}
 function rows(){let result;if(state.mode==='cards'){result=db.cards.filter(cardMatches).map(card=>({...stats(card),type:'card',id:card.id,card,person:person(card.personId)}))}else{result=db.persons.flatMap(p=>{const cards=db.cards.filter(c=>c.personId===p.id&&cardMatches(c)),cardRows=cards.map(card=>({...stats(card),type:'card',id:card.id,card,person:p}));if(cards.length>1)cardRows.push({...sumStats(cards),type:'aggregate',id:p.id,person:p,cards});return cardRows})}return result.sort((a,b)=>{if(state.sort==='default')return defaultRowCompare(a,b);const value=state.sort==='name'?compareText(a.person.nameOriginal,b.person.nameOriginal):Number(a[state.sort])-Number(b[state.sort]);return state.direction==='asc'?value:-value})}
 function positionRankingRows(){
   const position=rankingState.position;
