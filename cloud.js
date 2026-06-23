@@ -38,7 +38,16 @@
     payload.cards.forEach(card=>{
       if(card.photoPath)card.photo='';
     });
+    [...(payload.leagues||[]),...(payload.clubs||[])].forEach(item=>{
+      if(item.logoPath)item.logo='';
+    });
     return payload;
+  }
+
+  async function uploadDataImage(value,path){
+    const blob=await fetch(value).then(response=>response.blob());
+    const {error}=await client.storage.from(BUCKET).upload(path,blob,{contentType:'image/webp',upsert:true,cacheControl:'3600'});
+    if(error)throw error;
   }
 
   async function uploadPendingPhotos(){
@@ -46,10 +55,8 @@
     for(let index=0;index<pending.length;index++){
       const card=pending[index];
       setStatus('syncing',`PHOTO ${index+1}/${pending.length}`,'선수 사진을 안전한 저장소로 옮기는 중입니다.');
-      const blob=await fetch(card.photo).then(response=>response.blob());
       const path=`${currentUser.id}/${card.id}.webp`;
-      const {error}=await client.storage.from(BUCKET).upload(path,blob,{contentType:'image/webp',upsert:true,cacheControl:'3600'});
-      if(error)throw error;
+      await uploadDataImage(card.photo,path);
       card.photoPath=path;
       card.photo='';
     }
@@ -60,11 +67,39 @@
     }
   }
 
+  async function uploadPendingLogos(){
+    const pending=[
+      ...db.leagues.filter(item=>typeof item.logo==='string'&&item.logo.startsWith('data:image/')).map(item=>({type:'league',item})),
+      ...db.clubs.filter(item=>typeof item.logo==='string'&&item.logo.startsWith('data:image/')).map(item=>({type:'club',item}))
+    ];
+    for(let index=0;index<pending.length;index++){
+      const entry=pending[index],folder=entry.type==='league'?'leagues':'clubs';
+      setStatus('syncing',`LOGO ${index+1}/${pending.length}`,'리그/팀 로고를 안전한 저장소로 옮기는 중입니다.');
+      const path=`${currentUser.id}/logos/${folder}/${entry.item.id}.webp`;
+      await uploadDataImage(entry.item.logo,path);
+      entry.item.logoPath=path;
+      entry.item.logo='';
+    }
+    if(pending.length){
+      await hydrateLogoUrls(db);
+      localStorage.setItem(STORAGE_KEY,JSON.stringify(db));
+      render();
+    }
+  }
+
   async function hydratePhotoUrls(target){
     const cards=target.cards.filter(card=>card.photoPath);
     await Promise.all(cards.map(async card=>{
       const {data,error}=await client.storage.from(BUCKET).createSignedUrl(card.photoPath,60*60*24*7);
       if(!error&&data?.signedUrl)card.photo=data.signedUrl;
+    }));
+  }
+
+  async function hydrateLogoUrls(target){
+    const items=[...(target.leagues||[]),...(target.clubs||[])].filter(item=>item.logoPath);
+    await Promise.all(items.map(async item=>{
+      const {data,error}=await client.storage.from(BUCKET).createSignedUrl(item.logoPath,60*60*24*7);
+      if(!error&&data?.signedUrl)item.logo=data.signedUrl;
     }));
   }
 
@@ -84,6 +119,7 @@
     const nationalityChanged=window.normalizeNationalityDatabase?.(next)||false;
     if(!next?.persons||!next?.cards||!next?.clubs||!next?.leagues)throw new Error('클라우드 데이터 형식이 올바르지 않습니다.');
     await hydratePhotoUrls(next);
+    await hydrateLogoUrls(next);
     db=next;
     cloudRevision=Number(data.revision)||1;
     localStorage.setItem(STORAGE_KEY,JSON.stringify(db));
@@ -99,6 +135,7 @@
     el('migrationMessage').textContent='기존 기록과 사진을 업로드하고 있습니다. 창을 닫지 마세요.';
     try{
       await uploadPendingPhotos();
+      await uploadPendingLogos();
       const {data,error}=await client.from(TABLE).insert({user_id:currentUser.id,data:cloudPayload()}).select('revision').single();
       if(error)throw error;
       cloudRevision=Number(data.revision)||1;
@@ -126,6 +163,7 @@
     saving=true;
     try{
       await uploadPendingPhotos();
+      await uploadPendingLogos();
       const expectedRevision=cloudRevision;
       const {data,error}=await client.from(TABLE).update({data:cloudPayload()}).eq('user_id',currentUser.id).eq('revision',expectedRevision).select('revision, updated_at').maybeSingle();
       if(error)throw error;
