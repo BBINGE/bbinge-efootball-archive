@@ -59,11 +59,11 @@
           <label class="search-box"><span>⌕</span><input id="searchInput" placeholder="선수, 팀, 리그, 국적 검색"></label>
           <select id="positionFilter"><option value="all">전체 포지션</option><option>GK</option><option>CB</option><option>LB</option><option>RB</option><option>DMF</option><option>CMF</option><option>LMF</option><option>RMF</option><option>AMF</option><option>LWF</option><option>RWF</option><option>SS</option><option>CF</option></select>
         </div>
-        <div class="ranking-hint"><button type="button" id="defaultSortButton">기본 정렬</button> · 열 제목을 누르면 해당 기록으로 정렬됩니다. <b id="sortDescription">리그 → 팀 → 포지션 → 등번호 → 선수 → 현역/은퇴</b></div>
+        <div class="ranking-hint"><button type="button" id="defaultSortButton">기본 정렬</button> · 열 제목을 누르면 해당 항목으로 정렬됩니다. <b id="sortDescription">리그 → 팀 → 포지션군 → 현역/은퇴 → 등번호 → 생년월일</b></div>
         <div class="table-frame">
           <table>
             <colgroup><col class="col-rank"><col class="col-no"><col class="col-player"><col class="col-nation"><col class="col-birth"><col class="col-age"><col class="col-pos"><col class="col-league"><col class="col-club"><col class="col-stat"><col class="col-stat"><col class="col-stat"><col class="col-stat"><col class="col-rate"><col class="col-rate"><col class="col-rate"><col class="col-action"></colgroup>
-            <thead><tr><th>#</th><th>NO.</th><th>PLAYER</th><th>NATION</th><th>BIRTH</th><th>AGE</th><th>POS</th><th>LEAGUE</th><th>CLUB</th><th class="sortable" data-sort="appearances">APP <i></i></th><th class="sortable" data-sort="goals">G <i></i></th><th class="sortable" data-sort="assists">A <i></i></th><th class="sortable" data-sort="contributions">G+A <i></i></th><th class="sortable" data-sort="contributionRate">G+A/M <i></i></th><th class="sortable" data-sort="goalRate">G/M <i></i></th><th class="sortable" data-sort="assistRate">A/M <i></i></th><th></th></tr></thead>
+            <thead><tr><th>#</th><th>NO.</th><th>PLAYER</th><th>NATION</th><th class="sortable" data-sort="birthDate">BIRTH <i></i></th><th class="sortable" data-sort="age">AGE <i></i></th><th class="sortable" data-sort="position">POS <i></i></th><th>LEAGUE</th><th>CLUB</th><th class="sortable" data-sort="appearances">APP <i></i></th><th class="sortable" data-sort="goals">G <i></i></th><th class="sortable" data-sort="assists">A <i></i></th><th class="sortable" data-sort="contributions">G+A <i></i></th><th class="sortable" data-sort="contributionRate">G+A/M <i></i></th><th class="sortable" data-sort="goalRate">G/M <i></i></th><th class="sortable" data-sort="assistRate">A/M <i></i></th><th></th></tr></thead>
             <tbody id="playerTable"></tbody>
           </table>
         </div>
@@ -180,6 +180,6 @@
   <datalist id="nationalityOptions"></datalist>
   <script src="countries.js?v=20260621-1"></script>
   <script src="cloud.js?v=20260623-1"></script>
-  <script src="app.js?v=20260623-3"></script>
+  <script src="app.js?v=20260624-1"></script>
 </body>
 </html>
