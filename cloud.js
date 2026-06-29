@@ -34,6 +34,7 @@
   function hideLogin(){el('authGate')?.classList.add('hidden')}
 
   function cloudPayload(){
+    recoverPhotoPaths(db);
     const payload=structuredClone(db);
     payload.cards.forEach(card=>{
       if(card.photoPath)card.photo='';
@@ -50,7 +51,27 @@
     if(error)throw error;
   }
 
+  function signedStoragePath(value){
+    if(typeof value!=='string'||!value.includes('/storage/v1/object/sign/'))return '';
+    try{
+      const url=new URL(value),marker=`/storage/v1/object/sign/${BUCKET}/`,index=url.pathname.indexOf(marker);
+      return index>=0?decodeURIComponent(url.pathname.slice(index+marker.length)):'';
+    }catch{return ''}
+  }
+
+  function recoverPhotoPaths(target){
+    let recovered=0;
+    (target.cards||[]).forEach(card=>{
+      if(!card.photoPath){
+        const path=signedStoragePath(card.photo);
+        if(path){card.photoPath=path;recovered++}
+      }
+    });
+    return recovered;
+  }
+
   async function uploadPendingPhotos(){
+    recoverPhotoPaths(db);
     const pending=db.cards.filter(card=>typeof card.photo==='string'&&card.photo.startsWith('data:image/'));
     for(let index=0;index<pending.length;index++){
       const card=pending[index];
@@ -118,6 +139,7 @@
     const next=data.data;
     const nationalityChanged=window.normalizeNationalityDatabase?.(next)||false;
     if(!next?.persons||!next?.cards||!next?.clubs||!next?.leagues)throw new Error('클라우드 데이터 형식이 올바르지 않습니다.');
+    const recoveredPhotoPaths=recoverPhotoPaths(next);
     await hydratePhotoUrls(next);
     await hydrateLogoUrls(next);
     db=next;
@@ -126,7 +148,7 @@
     ready=true;
     render();
     setStatus('synced','SYNCED',`클라우드 동기화 완료 · revision ${cloudRevision}`);
-    if(nationalityChanged)scheduleSave();
+    if(nationalityChanged||recoveredPhotoPaths)scheduleSave();
   }
 
   async function migrateLocalArchive(){
