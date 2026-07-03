@@ -147,7 +147,23 @@ function previewFormula(){const s=stats({statEntries:collectStatEntries()});$('#
 async function compressImage(file){if(!file)return'';if(file.size>10*1024*1024)throw new Error('사진은 10MB 이하여야 합니다.');const bitmap=await createImageBitmap(file),maxW=650,maxH=850,scale=Math.min(1,maxW/bitmap.width,maxH/bitmap.height),canvas=document.createElement('canvas');canvas.width=Math.round(bitmap.width*scale);canvas.height=Math.round(bitmap.height*scale);canvas.getContext('2d').drawImage(bitmap,0,0,canvas.width,canvas.height);return canvas.toDataURL('image/webp',.78)}
 async function compressLogo(file){if(!file)return'';if(file.size>5*1024*1024)throw new Error('로고는 5MB 이하여야 합니다.');const bitmap=await createImageBitmap(file),maxW=320,maxH=320,scale=Math.min(1,maxW/bitmap.width,maxH/bitmap.height),canvas=document.createElement('canvas');canvas.width=Math.round(bitmap.width*scale);canvas.height=Math.round(bitmap.height*scale);canvas.getContext('2d').drawImage(bitmap,0,0,canvas.width,canvas.height);return canvas.toDataURL('image/webp',.9)}
 function deleteLeague(id){if(db.clubs.some(c=>c.leagueId===id))return alert('소속 팀이 있는 리그는 삭제할 수 없습니다.');if(confirm('이 리그를 삭제할까요?')){db.leagues=db.leagues.filter(l=>l.id!==id);persist()}}
-function deleteClub(id){if(db.cards.some(c=>c.clubId===id))return alert('등록된 카드가 있는 팀은 삭제할 수 없습니다.');if(confirm('이 팀을 삭제할까요?')){db.clubs=db.clubs.filter(c=>c.id!==id);persist()}}
+function deleteClub(id){
+  const target=club(id);
+  if(!target)return;
+  const linkedCards=db.cards.filter(card=>card.clubId===id);
+  if(linkedCards.length){
+    const duplicate=db.clubs.find(c=>c.id!==id&&c.leagueId===target.leagueId&&(normalizedName(c.nameKo)===normalizedName(target.nameKo)||normalizedName(c.nameOriginal)===normalizedName(target.nameOriginal)));
+    if(!duplicate)return alert('등록된 카드가 있는 팀입니다. 같은 이름의 중복 팀이 있을 때만 선수 카드를 옮기고 삭제할 수 있습니다.');
+    if(!confirm(`"${target.nameKo}" 팀을 삭제하고 연결된 선수 카드 ${linkedCards.length}장을 "${duplicate.nameKo}" 팀으로 옮길까요?`))return;
+    linkedCards.forEach(card=>card.clubId=duplicate.id);
+    if(state.clubId===id)state.clubId=duplicate.id;
+    db.clubs=db.clubs.filter(c=>c.id!==id);
+    persist();
+    toast('중복 팀을 삭제하고 연결된 선수 카드를 남은 팀으로 옮겼습니다.');
+    return;
+  }
+  if(confirm('이 팀을 삭제할까요?')){db.clubs=db.clubs.filter(c=>c.id!==id);persist()}
+}
 
 $('#personSelect').onchange=e=>{if(e.target.value==='new'){['nameKo','nameOriginal','nationalityKo','nationalityOriginal','birthDate','position'].forEach(key=>$(`#cardForm [name=${key}]`).value='');$('#cardForm [name=careerStatus]').value='active';$('#cardForm [name=divine]').checked=false;$('#cardForm [name=ballonDor]').checked=false}else fillPerson(person(e.target.value))};
 $('#cardForm').addEventListener('input',previewFormula);
