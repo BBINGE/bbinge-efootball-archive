@@ -95,6 +95,30 @@ function renderPositionCounts(){
 
 const ANALYTICS_METRICS={appearances:'출전',goals:'골',assists:'도움',contributions:'공격포인트',cards:'카드 수'};
 const ANALYTICS_SCOPES={league:'리그',club:'팀',nation:'국가'};
+const NATIONALITY_FLAG_CODES={
+  '가나 공화국':'gh','가봉 공화국':'ga','기니 공화국':'gn','나이지리아 연방 공화국':'ng',
+  '네덜란드 왕국':'nl','노르웨이 왕국':'no','대한민국':'kr','덴마크 왕국':'dk',
+  '독일 연방 공화국':'de','러시아 연방':'ru','루마니아':'ro','말리 공화국':'ml',
+  '멕시코 합중국':'mx','모로코 왕국':'ma','몬테네그로':'me','미합중국':'us',
+  '벨기에 왕국':'be','보스니아 헤르체고비나':'ba','북마케도니아 공화국':'mk','불가리아 공화국':'bg',
+  '브라질 연방 공화국':'br','세네갈 공화국':'sn','세르비아 공화국':'rs','스웨덴 왕국':'se',
+  '스위스 연방':'ch','스페인 왕국':'es','슬로바키아 공화국':'sk','슬로베니아 공화국':'si',
+  '아르메니아 공화국':'am','아르헨티나 공화국':'ar','아일랜드':'ie','알바니아 공화국':'al',
+  '알제리 인민 민주 공화국':'dz','에콰도르 공화국':'ec','영국 (스코틀랜드)':'gb-sct','영국 (웨일스)':'gb-wls',
+  '영국 (잉글랜드)':'gb-eng','영국 (북아일랜드)':'gb-nir','오스트리아 공화국':'at','우루과이 동방 공화국':'uy',
+  '우크라이나':'ua','이란 이슬람 공화국':'ir','이집트 아랍 공화국':'eg','이탈리아 공화국':'it',
+  '일본국':'jp','조지아':'ge','중앙아프리카 공화국':'cf','체코 공화국':'cz',
+  '칠레 공화국':'cl','카메룬 공화국':'cm','캐나다':'ca','코소보 공화국':'xk',
+  '코스타리카 공화국':'cr','코트디부아르 공화국':'ci','콜롬비아 공화국':'co','콩고 민주 공화국':'cd',
+  '크로아티아 공화국':'hr','튀르키예 공화국':'tr','트리니다드 토바고 공화국':'tt','페루 공화국':'pe',
+  '포르투갈 공화국':'pt','폴란드 공화국':'pl','프랑스 공화국':'fr','핀란드 공화국':'fi','헝가리':'hu'
+};
+function nationalityFlag(nationKo,nationOriginal=''){
+  const canonical=canonicalNationalityKo(nationKo),code=NATIONALITY_FLAG_CODES[canonical];
+  if(!code)return'<span class="analytics-mark nation-mark">N</span>';
+  return`<span class="analytics-mark nation-flag-mark"><span class="nation-flag-fallback">N</span><img class="nation-flag-image" src="https://flagcdn.com/w40/${code}.webp" srcset="https://flagcdn.com/w80/${code}.webp 2x" alt="${esc(canonical||nationOriginal)} 국기" loading="lazy" decoding="async"></span>`;
+}
+function bindNationFlags(scope=document){scope.querySelectorAll('.nation-flag-image').forEach(img=>{if(img.dataset.flagBound)return;img.dataset.flagBound='1';img.addEventListener('error',()=>img.classList.add('broken'),{once:true})})}
 function analyticsBase(){return{appearances:0,goals:0,assists:0,contributions:0,cards:0}}
 function addAnalyticsStats(target,card){const value=stats(card);target.appearances+=value.appearances;target.goals+=value.goals;target.assists+=value.assists;target.contributions+=value.contributions;target.cards++}
 function analyticsRows(scope=analyticsState.scope){
@@ -111,7 +135,7 @@ function analyticsRows(scope=analyticsState.scope){
     }else{
       const nationKo=p?.nationalityKo||'국적 미상',nationOriginal=p?.nationalityOriginal||'';
       key=`nation:${nationKo}`;
-      item={id:key,nameKo:nationKo,nameOriginal:nationOriginal,mark:'<span class="analytics-mark nation-mark">N</span>',search:nationKo};
+      item={id:key,nameKo:nationKo,nameOriginal:nationOriginal,mark:nationalityFlag(nationKo,nationOriginal),search:nationKo};
     }
     if(!groups.has(key))groups.set(key,{...item,...analyticsBase()});
     addAnalyticsStats(groups.get(key),card);
@@ -131,6 +155,7 @@ function renderAnalytics(){
   $('#analyticsRankingList').innerHTML=list.length?list.slice(0,12).map((item,index)=>{const value=item[metric],share=metricTotal?value/metricTotal*100:0,width=value/maximum*100;return`<button type="button" class="analytics-ranking-row" data-analytics-kind="${scope}" data-analytics-id="${esc(item.id)}" data-analytics-search="${esc(item.search)}" ${item.id?'':'disabled'} title="선수 아카이브에서 보기"><span class="analytics-rank rank-${index+1}">${String(index+1).padStart(2,'0')}</span>${item.mark}<span class="analytics-identity"><b>${esc(item.nameKo)}</b><small>${esc(item.nameOriginal)}</small></span><span class="analytics-bar"><i style="width:${width.toFixed(2)}%"></i></span><span class="analytics-row-value"><b>${value.toLocaleString()}</b><small>${share.toFixed(1)}% · ${unit}</small></span></button>`}).join(''):'<p class="analytics-empty">집계할 카드 기록이 없습니다.</p>';
   $('#analyticsLeaderPanel').innerHTML=leader?`<p class="overline">CURRENT LEADER</p><span class="analytics-leader-mark">${leader.mark}</span><h2>${esc(leader.nameKo)}</h2><p class="analytics-leader-original">${esc(leader.nameOriginal)}</p><div class="analytics-leader-score"><b>${leader[metric].toLocaleString()}</b><span>${ANALYTICS_METRICS[metric]} ${unit}</span></div><div class="analytics-leader-stats"><span><small>출전</small><b>${leader.appearances.toLocaleString()}</b></span><span><small>골</small><b>${leader.goals.toLocaleString()}</b></span><span><small>도움</small><b>${leader.assists.toLocaleString()}</b></span><span><small>카드</small><b>${leader.cards.toLocaleString()}</b></span></div><div class="analytics-concentration"><span><b>선두 점유율</b><small>전체 ${ANALYTICS_METRICS[metric]} 중</small></span><strong>${(metricTotal?leader[metric]/metricTotal*100:0).toFixed(1)}%</strong></div><div class="analytics-concentration"><span><b>TOP 5 집중도</b><small>상위 5개 ${ANALYTICS_SCOPES[scope]} 합계</small></span><strong>${(metricTotal?topFive/metricTotal*100:0).toFixed(1)}%</strong></div>`:'<p class="analytics-empty">표시할 분석 결과가 없습니다.</p>';
   bindBrokenLogos($('#analyticsView'));
+  bindNationFlags($('#analyticsView'));
   $$('[data-analytics-kind]').forEach(button=>button.onclick=()=>openAnalyticsGroup(button));
 }
 function switchView(view){
