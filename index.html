@@ -7,13 +7,13 @@
   <title>MY FOOTBALL ARCHIVE</title>
   <link rel="icon" type="image/png" href="assets/haji-favicon.png">
   <link rel="stylesheet" href="styles.css?v=20260620-3">
-  <link rel="stylesheet" href="dense-table.css?v=20260621-7">
+  <link rel="stylesheet" href="dense-table.css?v=20260716-1">
   <link rel="stylesheet" href="cloud.css?v=20260620-3">
 </head>
 <body>
   <header class="topbar">
     <a class="brand" href="#"><img src="assets/haji-favicon.png" alt="하지"><span><b>MY FOOTBALL</b><small>PERSONAL ARCHIVE</small></span></a>
-    <nav><button class="nav-tab active">PLAYERS</button><button class="nav-tab" id="manageMasters">LEAGUES & CLUBS</button></nav>
+    <nav><button class="nav-tab active" id="playersViewButton" type="button">PLAYERS</button><button class="nav-tab" id="statsViewButton" type="button">STATS</button><button class="nav-tab" id="manageMasters" type="button">LEAGUES & CLUBS</button></nav>
     <div class="top-actions">
       <button class="button cloud-status" id="cloudStatus" type="button" title="클라우드 동기화 상태">CLOUD</button>
       <button class="button quiet" id="backupButton">BACKUP</button>
@@ -23,7 +23,7 @@
   </header>
 
   <main>
-    <section class="spotlight" id="spotlight">
+    <section class="spotlight player-view-section" id="spotlight">
       <div class="spotlight-copy">
         <p class="overline" id="detailOverline">FEATURED PLAYER</p>
         <div class="detail-club" id="detailClub"></div>
@@ -41,9 +41,9 @@
       </div>
     </section>
 
-    <section class="dashboard-strip" id="dashboardStrip"></section>
+    <section class="dashboard-strip player-view-section" id="dashboardStrip"></section>
 
-    <section class="app-shell">
+    <section class="app-shell player-view-section">
       <aside class="side-panel">
         <div class="side-heading"><span>COMPETITIONS</span><div class="side-actions"><button id="sidebarToggle" type="button" aria-expanded="true" title="리그 패널 접기">‹</button><button data-open="leagueDialog" title="리그 추가">+</button></div></div>
         <button class="filter-link active" data-league="all"><span class="mini-mark all-mark">ALL</span><span>전체 리그</span><b id="allLeagueCount">0</b></button>
@@ -53,7 +53,7 @@
       <section class="database">
         <div class="database-title">
           <div><p class="overline blue">DATABASE</p><h2>선수 아카이브</h2><p>카드별 기록과 한 선수의 통합 기록을 자유롭게 오가세요.</p></div>
-          <div class="database-actions"><button type="button" class="position-count-button" id="positionCountButton">포지션별 등록 선수</button><button type="button" class="position-ranking-button" id="positionRankingButton">포지션 랭킹</button><div class="mode-switch"><button class="active" data-mode="aggregate">선수 통산 순위</button><button data-mode="cards">카드 순위</button></div></div>
+          <div class="database-actions"><button type="button" class="analytics-open-button" id="analyticsOpenButton">세부 통계</button><button type="button" class="position-count-button" id="positionCountButton">포지션별 등록 선수</button><button type="button" class="position-ranking-button" id="positionRankingButton">포지션 랭킹</button><div class="mode-switch"><button class="active" data-mode="aggregate">선수 통산 순위</button><button data-mode="cards">카드 순위</button></div></div>
         </div>
         <div class="controls">
           <label class="search-box"><span>⌕</span><input id="searchInput" placeholder="선수, 팀, 리그, 국적 검색"></label>
@@ -68,6 +68,53 @@
           </table>
         </div>
         <div class="empty hidden" id="emptyState"><b>조건에 맞는 선수가 없습니다.</b><span>새로운 카드를 등록하거나 필터를 바꿔보세요.</span><button class="button primary" id="emptyAdd">+ ADD CARD</button></div>
+      </section>
+    </section>
+
+    <section class="analytics-view hidden" id="analyticsView">
+      <header class="analytics-header">
+        <div>
+          <p class="overline blue">ARCHIVE INTELLIGENCE</p>
+          <h1>세부 통계</h1>
+          <p>리그, 팀, 국가별로 아카이브의 출전과 공격 기록이 어디에서 가장 많이 만들어졌는지 분석합니다.</p>
+        </div>
+        <button class="analytics-back" id="analyticsBackButton" type="button">선수 아카이브로</button>
+      </header>
+
+      <div class="analytics-overview" id="analyticsOverview"></div>
+
+      <section class="analytics-workspace">
+        <div class="analytics-toolbar">
+          <div class="analytics-control-group">
+            <span>ANALYSIS UNIT</span>
+            <div class="analytics-segment" aria-label="분석 단위">
+              <button class="active" type="button" data-analytics-scope="league">리그</button>
+              <button type="button" data-analytics-scope="club">팀</button>
+              <button type="button" data-analytics-scope="nation">국가</button>
+            </div>
+          </div>
+          <div class="analytics-control-group metric-control">
+            <span>METRIC</span>
+            <div class="analytics-segment metric-segment" aria-label="집계 지표">
+              <button class="active" type="button" data-analytics-metric="contributions">공격포인트</button>
+              <button type="button" data-analytics-metric="appearances">출전</button>
+              <button type="button" data-analytics-metric="goals">골</button>
+              <button type="button" data-analytics-metric="assists">도움</button>
+              <button type="button" data-analytics-metric="cards">카드 수</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="analytics-grid">
+          <section class="analytics-ranking-panel">
+            <div class="analytics-section-head">
+              <div><p class="overline blue">DISTRIBUTION RANKING</p><h2 id="analyticsRankingTitle">리그별 공격포인트</h2></div>
+              <p id="analyticsScopeSummary"></p>
+            </div>
+            <div class="analytics-ranking-list" id="analyticsRankingList"></div>
+          </section>
+          <aside class="analytics-leader-panel" id="analyticsLeaderPanel"></aside>
+        </div>
       </section>
     </section>
   </main>
@@ -181,6 +228,6 @@
   <datalist id="nationalityOptions"></datalist>
   <script src="countries.js?v=20260621-1"></script>
   <script src="cloud.js?v=20260629-1"></script>
-  <script src="app.js?v=20260704-2"></script>
+  <script src="app.js?v=20260716-1"></script>
 </body>
 </html>

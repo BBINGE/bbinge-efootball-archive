@@ -35,6 +35,8 @@ let pendingLeagueLogo='';
 let pendingClubLogo='';
 let masterLeagueId='';
 let rankingState={mode:'aggregate',position:'CF',stat:'contributions'};
+let activeView='players';
+let analyticsState={scope:'league',metric:'contributions'};
 const $=s=>document.querySelector(s);const $$=s=>[...document.querySelectorAll(s)];
 function load(){try{const parsed=JSON.parse(localStorage.getItem(STORAGE_KEY));if(parsed?.persons&&parsed?.cards){parsed.leagues.forEach(l=>cleanFields(l,['nameKo','nameOriginal','country','logo']));parsed.clubs.forEach(c=>cleanFields(c,['nameKo','nameOriginal','logo']));parsed.persons.forEach(p=>{cleanFields(p,['nameKo','nameOriginal','nationalityKo','nationalityOriginal']);p.nationalityKo=canonicalNationalityKo(p.nationalityKo);if(!p.careerStatus)p.careerStatus='active'});parsed.cards.forEach(card=>{delete card.season;card.version=cleanText(card.version);if(!Array.isArray(card.statEntries)||!card.statEntries.length)card.statEntries=[{id:uid('stat'),label:'기존 기록',appearances:statNumber(card.appearances),goals:statNumber(card.goals),assists:statNumber(card.assists),order:1}];card.statEntries.sort((a,b)=>(Number(a.order)||0)-(Number(b.order)||0));const currentIndex=Math.max(0,card.statEntries.findIndex(entry=>entry.isCurrent));card.statEntries.forEach((entry,index)=>{entry.label=cleanText(entry.label)||`기록 ${index+1}`;entry.order=index+1;entry.appearances=statNumber(entry.appearances);entry.goals=statNumber(entry.goals);entry.assists=statNumber(entry.assists);entry.isCurrent=index===currentIndex})});return parsed}}catch{}const fresh=structuredClone(seed);normalizeNationalityDatabase(fresh);fresh.cards.forEach(card=>card.statEntries=[{id:uid('stat'),label:'기존 기록',appearances:statNumber(card.appearances),goals:statNumber(card.goals),assists:statNumber(card.assists),order:1,isCurrent:true}]);return fresh}
 function persist(){localStorage.setItem(STORAGE_KEY,JSON.stringify(db));render();window.FootballCloud?.scheduleSave()}
@@ -91,7 +93,69 @@ function renderPositionCounts(){
   $$('[data-position-count]').forEach(button=>button.onclick=()=>{$('#positionFilter').value=button.dataset.positionCount;$('#positionCountDialog').close();renderTable();document.querySelector('.database').scrollIntoView({behavior:'smooth',block:'start'})});
 }
 
-function render(){populateSelects();renderSidebar();$('[data-league="all"]').classList.toggle('active',state.leagueId==='all');renderDashboard();renderTable();renderManagers();renderDetail();bindBrokenLogos()}
+const ANALYTICS_METRICS={appearances:'출전',goals:'골',assists:'도움',contributions:'공격포인트',cards:'카드 수'};
+const ANALYTICS_SCOPES={league:'리그',club:'팀',nation:'국가'};
+function analyticsBase(){return{appearances:0,goals:0,assists:0,contributions:0,cards:0}}
+function addAnalyticsStats(target,card){const value=stats(card);target.appearances+=value.appearances;target.goals+=value.goals;target.assists+=value.assists;target.contributions+=value.contributions;target.cards++}
+function analyticsRows(scope=analyticsState.scope){
+  const groups=new Map();
+  db.cards.forEach(card=>{
+    const c=club(card.clubId),l=league(c?.leagueId),p=person(card.personId);
+    let key,item;
+    if(scope==='league'){
+      key=l?.id||'unknown-league';
+      item={id:l?.id||'',nameKo:l?.nameKo||'리그 미상',nameOriginal:l?.nameOriginal||'소속 리그 없음',mark:logo(l,'analytics-mark'),search:l?.nameKo||''};
+    }else if(scope==='club'){
+      key=c?.id||'unknown-club';
+      item={id:c?.id||'',nameKo:c?.nameKo||'팀 미상',nameOriginal:[l?.nameKo,c?.nameOriginal].filter(Boolean).join(' · ')||'소속 팀 없음',mark:logo(c,'analytics-mark'),search:c?.nameKo||''};
+    }else{
+      const nationKo=p?.nationalityKo||'국적 미상',nationOriginal=p?.nationalityOriginal||'';
+      key=`nation:${nationKo}`;
+      item={id:key,nameKo:nationKo,nameOriginal:nationOriginal,mark:'<span class="analytics-mark nation-mark">N</span>',search:nationKo};
+    }
+    if(!groups.has(key))groups.set(key,{...item,...analyticsBase()});
+    addAnalyticsStats(groups.get(key),card);
+  });
+  const metric=analyticsState.metric;
+  return[...groups.values()].sort((a,b)=>b[metric]-a[metric]||b.contributions-a.contributions||b.appearances-a.appearances||compareText(a.nameOriginal,b.nameOriginal));
+}
+function analyticsMetricUnit(metric){return metric==='cards'?'장':metric==='appearances'?'경기':'개'}
+function renderAnalytics(){
+  if(!$('#analyticsView'))return;
+  const totals=sumStats(db.cards),metric=analyticsState.metric,scope=analyticsState.scope,list=analyticsRows(scope),leader=list[0],metricTotal=list.reduce((sum,item)=>sum+item[metric],0),topFive=list.slice(0,5).reduce((sum,item)=>sum+item[metric],0),maximum=Math.max(1,leader?.[metric]||0),unit=analyticsMetricUnit(metric);
+  $('#analyticsOverview').innerHTML=[['REGISTERED CARDS',db.cards.length,'장'],['TOTAL APPEARANCES',totals.appearances,'경기'],['TOTAL GOALS',totals.goals,'골'],['TOTAL G+A',totals.contributions,'개']].map(([label,value,suffix])=>`<div class="analytics-overview-item"><span>${label}</span><b>${Number(value).toLocaleString()}</b><small>${suffix}</small></div>`).join('');
+  $$('[data-analytics-scope]').forEach(button=>button.classList.toggle('active',button.dataset.analyticsScope===scope));
+  $$('[data-analytics-metric]').forEach(button=>button.classList.toggle('active',button.dataset.analyticsMetric===metric));
+  $('#analyticsRankingTitle').textContent=`${ANALYTICS_SCOPES[scope]}별 ${ANALYTICS_METRICS[metric]}`;
+  $('#analyticsScopeSummary').textContent=`${list.length.toLocaleString()}개 ${ANALYTICS_SCOPES[scope]} · 전체 카드 ${db.cards.length.toLocaleString()}장 기준`;
+  $('#analyticsRankingList').innerHTML=list.length?list.slice(0,12).map((item,index)=>{const value=item[metric],share=metricTotal?value/metricTotal*100:0,width=value/maximum*100;return`<button type="button" class="analytics-ranking-row" data-analytics-kind="${scope}" data-analytics-id="${esc(item.id)}" data-analytics-search="${esc(item.search)}" ${item.id?'':'disabled'} title="선수 아카이브에서 보기"><span class="analytics-rank rank-${index+1}">${String(index+1).padStart(2,'0')}</span>${item.mark}<span class="analytics-identity"><b>${esc(item.nameKo)}</b><small>${esc(item.nameOriginal)}</small></span><span class="analytics-bar"><i style="width:${width.toFixed(2)}%"></i></span><span class="analytics-row-value"><b>${value.toLocaleString()}</b><small>${share.toFixed(1)}% · ${unit}</small></span></button>`}).join(''):'<p class="analytics-empty">집계할 카드 기록이 없습니다.</p>';
+  $('#analyticsLeaderPanel').innerHTML=leader?`<p class="overline">CURRENT LEADER</p><span class="analytics-leader-mark">${leader.mark}</span><h2>${esc(leader.nameKo)}</h2><p class="analytics-leader-original">${esc(leader.nameOriginal)}</p><div class="analytics-leader-score"><b>${leader[metric].toLocaleString()}</b><span>${ANALYTICS_METRICS[metric]} ${unit}</span></div><div class="analytics-leader-stats"><span><small>출전</small><b>${leader.appearances.toLocaleString()}</b></span><span><small>골</small><b>${leader.goals.toLocaleString()}</b></span><span><small>도움</small><b>${leader.assists.toLocaleString()}</b></span><span><small>카드</small><b>${leader.cards.toLocaleString()}</b></span></div><div class="analytics-concentration"><span><b>선두 점유율</b><small>전체 ${ANALYTICS_METRICS[metric]} 중</small></span><strong>${(metricTotal?leader[metric]/metricTotal*100:0).toFixed(1)}%</strong></div><div class="analytics-concentration"><span><b>TOP 5 집중도</b><small>상위 5개 ${ANALYTICS_SCOPES[scope]} 합계</small></span><strong>${(metricTotal?topFive/metricTotal*100:0).toFixed(1)}%</strong></div>`:'<p class="analytics-empty">표시할 분석 결과가 없습니다.</p>';
+  bindBrokenLogos($('#analyticsView'));
+  $$('[data-analytics-kind]').forEach(button=>button.onclick=()=>openAnalyticsGroup(button));
+}
+function switchView(view){
+  activeView=view;
+  $$('.player-view-section').forEach(section=>section.classList.toggle('hidden',view!=='players'));
+  $('#analyticsView').classList.toggle('hidden',view!=='analytics');
+  $('#playersViewButton').classList.toggle('active',view==='players');
+  $('#statsViewButton').classList.toggle('active',view==='analytics');
+  if(view==='analytics')renderAnalytics();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function openAnalyticsGroup(button){
+  const kind=button.dataset.analyticsKind,id=button.dataset.analyticsId;
+  $('#positionFilter').value='all';
+  $('#searchInput').value='';
+  if(kind==='league'){state.leagueId=id;state.clubId='all'}
+  else if(kind==='club'){state.clubId=id;state.leagueId=club(id)?.leagueId||'all'}
+  else{state.leagueId='all';state.clubId='all';$('#searchInput').value=button.dataset.analyticsSearch||''}
+  resetTableLimit();
+  render();
+  switchView('players');
+  requestAnimationFrame(()=>document.querySelector('.database').scrollIntoView({behavior:'smooth',block:'start'}));
+}
+
+function render(){populateSelects();renderSidebar();$('[data-league="all"]').classList.toggle('active',state.leagueId==='all');renderDashboard();renderTable();renderManagers();renderDetail();if(activeView==='analytics')renderAnalytics();bindBrokenLogos()}
 function renderSidebar(){const leagueCount=id=>db.cards.filter(c=>club(c.clubId)?.leagueId===id).length,sortedLeagues=[...db.leagues].sort((a,b)=>compareText(a.nameOriginal,b.nameOriginal));$('#allLeagueCount').textContent=db.cards.length;$('#leagueFilters').innerHTML=sortedLeagues.map(l=>{const expanded=state.leagueId===l.id,teams=[...db.clubs].filter(c=>c.leagueId===l.id).sort((a,b)=>compareText(a.nameOriginal,b.nameOriginal));return`<div class="league-group"><button class="filter-link ${expanded&&state.clubId==='all'?'active':''}" data-league="${l.id}">${logo(l,'mini-mark')}<span class="filter-copy"><b>${esc(l.nameKo)}</b><small>${esc(l.nameOriginal)}</small></span><b class="filter-tail">${leagueCount(l.id)} <i>${expanded?'⌄':'›'}</i></b></button>${expanded?`<div class="team-submenu">${teams.map(c=>`<button class="filter-link team-filter ${state.clubId===c.id?'active':''}" data-club="${c.id}">${logo(c,'mini-mark')}<span class="filter-copy"><b>${esc(c.nameKo)}</b><small>${esc(c.nameOriginal)}</small></span><b>${db.cards.filter(card=>card.clubId===c.id).length}</b></button>`).join('')||'<p class="no-teams">등록된 팀 없음</p>'}</div>`:''}</div>`}).join('');$$('[data-league]').forEach(button=>button.onclick=()=>{const id=button.dataset.league;if(id==='all'){state.leagueId='all';state.clubId='all'}else if(state.leagueId===id){state.leagueId='all';state.clubId='all'}else{state.leagueId=id;state.clubId='all'}render()});$$('[data-club]').forEach(button=>button.onclick=()=>{state.clubId=button.dataset.club;state.leagueId=club(button.dataset.club)?.leagueId||'all';render()})}
 function renderDashboard(){const totals=sumStats(db.cards),leader=db.persons.map(p=>({...p,...sumStats(db.cards.filter(c=>c.personId===p.id))})).sort((a,b)=>b.contributions-a.contributions)[0];$('#dashboardStrip').innerHTML=`<div class="dashboard-metric"><span>REGISTERED CARDS</span><b>${db.cards.length.toLocaleString()}</b><small>${db.persons.length} unique players</small></div><div class="dashboard-metric"><span>TOTAL APPEARANCES</span><b>${totals.appearances.toLocaleString()}</b><small>simulation matches</small></div><div class="dashboard-metric"><span>TOTAL GOALS</span><b>${totals.goals.toLocaleString()}</b><small>${formatRate(totals.goalRate)} per match</small></div><div class="dashboard-metric"><span>ALL-TIME G+A LEADER</span><b>${leader?.contributions??'-'}</b><small>${esc(leader?.nameKo||'기록 없음')}</small></div>`}
 function resetTableLimit(){tableRenderLimit=TABLE_PAGE_SIZE}
@@ -180,6 +244,12 @@ $('#leagueForm').onsubmit=e=>{e.preventDefault();const item=cleanFields(Object.f
 $('#clubForm').onsubmit=e=>{e.preventDefault();const item=cleanFields(Object.fromEntries(new FormData(e.currentTarget)),['nameKo','nameOriginal','logo']),editId=cleanText(item.editId),index=editId?db.clubs.findIndex(x=>x.id===editId):-1;if(editId&&index<0)return alert('수정 대상 팀을 찾지 못했습니다. 창을 닫고 다시 시도해 주세요.');delete item.editId;delete item.logoFile;if(index>=0){const previous=db.clubs[index],cardCount=db.cards.filter(card=>card.clubId===previous.id).length,identityChanged=previous.nameKo!==item.nameKo||previous.nameOriginal!==item.nameOriginal||previous.leagueId!==item.leagueId;if(identityChanged&&cardCount&&!confirm(`"${previous.nameKo}" 팀을 "${item.nameKo}"(으)로 변경할까요? 연결된 선수 카드 ${cardCount}장이 모두 새 팀으로 이동합니다.`))return;item.id=previous.id;item.logo=pendingClubLogo||item.logo||previous.logo||'';if(!pendingClubLogo&&item.logo===previous.logo&&previous.logoPath)item.logoPath=previous.logoPath;db.clubs[index]=item}else{item.id=uid('club');item.logo=pendingClubLogo||item.logo||'';db.clubs.push(item)}pendingClubLogo='';persist();resetMasterForm(e.currentTarget);resetLogoUploadStatus('club');$('#clubDialog').close();toast(index>=0?'팀을 수정했습니다.':'팀을 등록했습니다.')};
 $('#cardForm').addEventListener('submit',()=>{if($('#cardDialog').open)return;const divine=$('#cardForm [name=divine]').checked,ballonDor=$('#cardForm [name=ballonDor]').checked,personId=state.selected?.type==='aggregate'?state.selected.id:db.cards.find(card=>card.id===state.selected?.id)?.personId,p=person(personId);if(p&&(Boolean(p.divine)!==divine||Boolean(p.ballonDor)!==ballonDor)){p.divine=divine;p.ballonDor=ballonDor;persist()}});
 $('#addCardButton').onclick=()=>openCard();$('#emptyAdd').onclick=()=>openCard();$('#manageMasters').onclick=()=>$('#mastersDialog').showModal();
+$('#playersViewButton').onclick=()=>switchView('players');
+$('#statsViewButton').onclick=()=>switchView('analytics');
+$('#analyticsOpenButton').onclick=()=>switchView('analytics');
+$('#analyticsBackButton').onclick=()=>switchView('players');
+$$('[data-analytics-scope]').forEach(button=>button.onclick=()=>{analyticsState.scope=button.dataset.analyticsScope;renderAnalytics()});
+$$('[data-analytics-metric]').forEach(button=>button.onclick=()=>{analyticsState.metric=button.dataset.analyticsMetric;renderAnalytics()});
 $('#positionRankingButton').onclick=()=>{const current=$('#positionFilter').value;rankingState.position=current==='all'?'CF':current;$('#rankingPosition').value=rankingState.position;renderPositionRankings();$('#positionRankingDialog').showModal()};
 $('#positionCountButton').onclick=()=>{renderPositionCounts();$('#positionCountDialog').showModal()};
 $('#rankingPosition').onchange=e=>{rankingState.position=e.target.value;renderPositionRankings()};
