@@ -71,7 +71,7 @@ function currentAffiliationBadge(p){
   const info=currentAffiliationInfo(p);
   if(!info)return'';
   const title=['현재 소속',info.label,info.month?`${info.month} 기준`:''].filter(Boolean).join(' · ');
-  return`<em class="current-affiliation-badge ${info.status==='unattached'?'unattached':''}" title="${esc(title)}"><span>CURRENT</span>${esc(info.label)}</em>`;
+  return`<em class="current-affiliation-badge ${info.status==='unattached'?'unattached':''}" title="${esc(title)}"><span>CURRENT</span><i>${esc(info.label)}</i></em>`;
 }
 function currentAffiliationMeta(p){
   const info=currentAffiliationInfo(p);
