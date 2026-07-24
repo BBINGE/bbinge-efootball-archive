@@ -7,13 +7,13 @@
   <title>MY FOOTBALL ARCHIVE</title>
   <link rel="icon" type="image/png" href="assets/haji-favicon.png">
   <link rel="stylesheet" href="styles.css?v=20260620-3">
-  <link rel="stylesheet" href="dense-table.css?v=20260723-2">
+  <link rel="stylesheet" href="dense-table.css?v=20260724-1">
   <link rel="stylesheet" href="cloud.css?v=20260620-3">
 </head>
 <body>
   <header class="topbar">
     <a class="brand" href="#"><img src="assets/haji-favicon.png" alt="하지"><span><b>MY FOOTBALL</b><small>PERSONAL ARCHIVE</small></span></a>
-    <nav><button class="nav-tab active" id="playersViewButton" type="button">PLAYERS</button><button class="nav-tab" id="statsViewButton" type="button">STATS</button><button class="nav-tab" id="manageMasters" type="button">LEAGUES & CLUBS</button></nav>
+    <nav><button class="nav-tab active" id="playersViewButton" type="button">PLAYERS</button><button class="nav-tab" id="statsViewButton" type="button">STATS</button><button class="nav-tab" id="rankingsViewButton" type="button">RANKINGS</button><button class="nav-tab" id="manageMasters" type="button">LEAGUES & CLUBS</button></nav>
     <div class="top-actions">
       <button class="button cloud-status" id="cloudStatus" type="button" title="클라우드 동기화 상태">CLOUD</button>
       <button class="button quiet" id="backupButton">BACKUP</button>
@@ -114,6 +114,68 @@
             <div class="analytics-ranking-list" id="analyticsRankingList"></div>
           </section>
           <aside class="analytics-leader-panel" id="analyticsLeaderPanel"></aside>
+        </div>
+      </section>
+    </section>
+
+    <section class="rankings-view hidden" id="rankingsView">
+      <header class="analytics-header rankings-header">
+        <div>
+          <p class="overline blue">ARCHIVE RANKING INDEX</p>
+          <h1>아카이브 랭킹</h1>
+          <p>승패가 아닌 아카이브 기록을 기준으로 선수, 클럽, 국가, 리그의 공격 영향력과 활동량을 비교합니다.</p>
+        </div>
+        <button class="analytics-back" id="rankingsBackButton" type="button">선수 아카이브로</button>
+      </header>
+
+      <div class="analytics-overview" id="rankingsOverview"></div>
+
+      <section class="analytics-workspace rankings-workspace">
+        <div class="analytics-toolbar rankings-toolbar">
+          <div class="analytics-control-group">
+            <span>RANKING UNIT</span>
+            <div class="analytics-segment" aria-label="랭킹 단위">
+              <button class="active" type="button" data-ranking-scope="player">선수</button>
+              <button type="button" data-ranking-scope="club">클럽</button>
+              <button type="button" data-ranking-scope="nation">국가</button>
+              <button type="button" data-ranking-scope="league">리그</button>
+            </div>
+          </div>
+          <div class="analytics-control-group metric-control">
+            <span>RANKING METRIC</span>
+            <div class="analytics-segment metric-segment rankings-metric-segment" aria-label="랭킹 지표">
+              <button class="active" type="button" data-ranking-metric="score">아카이브 포인트</button>
+              <button type="button" data-ranking-metric="contributions">공격포인트</button>
+              <button type="button" data-ranking-metric="goals">골</button>
+              <button type="button" data-ranking-metric="assists">도움</button>
+              <button type="button" data-ranking-metric="efficiency">보정 효율</button>
+              <button type="button" data-ranking-metric="appearances">출전</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="rankings-filterbar">
+          <div class="analytics-segment ranking-eligibility-segment" aria-label="표본 기준">
+            <button class="active" type="button" data-ranking-eligibility="certified">공인 랭킹</button>
+            <button type="button" data-ranking-eligibility="all">전체 기록</button>
+          </div>
+          <div class="ranking-filter-controls">
+            <label class="ranking-filter" id="rankingPositionField"><span>POSITION</span><select id="rankingPositionFilter"><option value="all">전체 포지션</option><option>GK</option><option>CB</option><option>LB</option><option>RB</option><option>DMF</option><option>CMF</option><option>LMF</option><option>RMF</option><option>AMF</option><option>LWF</option><option>RWF</option><option>SS</option><option>CF</option></select></label>
+            <label class="ranking-filter" id="rankingCareerField"><span>STATUS</span><select id="rankingCareerFilter"><option value="all">현역·은퇴 전체</option><option value="active">현역</option><option value="retired">은퇴</option></select></label>
+            <label class="ranking-filter hidden" id="rankingLeagueField"><span>LEAGUE</span><select id="rankingLeagueFilter"><option value="all">전체 리그</option></select></label>
+          </div>
+        </div>
+
+        <div class="rankings-grid">
+          <section class="rankings-list-panel">
+            <div class="analytics-section-head rankings-section-head">
+              <div><p class="overline blue">ARCHIVE IMPACT TABLE</p><h2 id="rankingsTitle">선수 아카이브 포인트</h2></div>
+              <p id="rankingsSummary"></p>
+            </div>
+            <div class="rankings-list" id="rankingsList"></div>
+            <div class="rankings-more hidden" id="rankingsMore"><span id="rankingsMoreSummary"></span><button type="button" id="rankingsLoadMore">더 보기</button></div>
+          </section>
+          <aside class="rankings-leader-panel" id="rankingsLeaderPanel"></aside>
         </div>
       </section>
     </section>
@@ -231,6 +293,6 @@
   <datalist id="nationalityOptions"></datalist>
   <script src="countries.js?v=20260716-4"></script>
   <script src="cloud.js?v=20260629-1"></script>
-  <script src="app.js?v=20260723-2"></script>
+  <script src="app.js?v=20260724-1"></script>
 </body>
 </html>

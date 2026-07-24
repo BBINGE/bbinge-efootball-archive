@@ -37,6 +37,9 @@ let masterLeagueId='';
 let rankingState={mode:'aggregate',position:'CF',stat:'contributions'};
 let activeView='players';
 let analyticsState={scope:'league',metric:'contributions'};
+let archiveRankingState={scope:'player',metric:'score',eligibility:'certified',position:'all',career:'all',leagueId:'all'};
+const ARCHIVE_RANKING_PAGE_SIZE=100;
+let archiveRankingRenderLimit=ARCHIVE_RANKING_PAGE_SIZE;
 const $=s=>document.querySelector(s);const $$=s=>[...document.querySelectorAll(s)];
 function load(){try{const parsed=JSON.parse(localStorage.getItem(STORAGE_KEY));if(parsed?.persons&&parsed?.cards){parsed.leagues.forEach(l=>cleanFields(l,['nameKo','nameOriginal','country','logo']));parsed.clubs.forEach(c=>cleanFields(c,['nameKo','nameOriginal','logo']));parsed.persons.forEach(p=>{cleanFields(p,['nameKo','nameOriginal','nationalityKo','nationalityOriginal','currentClubName','currentAffiliationUpdatedAt']);p.nationalityKo=canonicalNationalityKo(p.nationalityKo);if(!p.careerStatus)p.careerStatus='active';if(!['club','unattached'].includes(p.currentAffiliationStatus))p.currentAffiliationStatus='';if(p.currentAffiliationStatus!=='club')p.currentClubName='';if(!/^\d{4}-\d{2}$/.test(p.currentAffiliationUpdatedAt||''))p.currentAffiliationUpdatedAt=''});parsed.cards.forEach(card=>{delete card.season;card.version=cleanText(card.version);if(!Array.isArray(card.statEntries)||!card.statEntries.length)card.statEntries=[{id:uid('stat'),label:'기존 기록',appearances:statNumber(card.appearances),goals:statNumber(card.goals),assists:statNumber(card.assists),order:1}];card.statEntries.sort((a,b)=>(Number(a.order)||0)-(Number(b.order)||0));const currentIndex=Math.max(0,card.statEntries.findIndex(entry=>entry.isCurrent));card.statEntries.forEach((entry,index)=>{entry.label=cleanText(entry.label)||`기록 ${index+1}`;entry.order=index+1;entry.appearances=statNumber(entry.appearances);entry.goals=statNumber(entry.goals);entry.assists=statNumber(entry.assists);entry.isCurrent=index===currentIndex})});return parsed}}catch{}const fresh=structuredClone(seed);normalizeNationalityDatabase(fresh);fresh.cards.forEach(card=>card.statEntries=[{id:uid('stat'),label:'기존 기록',appearances:statNumber(card.appearances),goals:statNumber(card.goals),assists:statNumber(card.assists),order:1,isCurrent:true}]);return fresh}
 function persist(){localStorage.setItem(STORAGE_KEY,JSON.stringify(db));render();window.FootballCloud?.scheduleSave()}
@@ -161,13 +164,180 @@ function renderAnalytics(){
   bindNationFlags($('#analyticsView'));
   $$('[data-analytics-kind]').forEach(button=>button.onclick=()=>openAnalyticsGroup(button));
 }
+
+const ARCHIVE_RANKING_SCOPES={player:'선수',club:'클럽',nation:'국가',league:'리그'};
+const ARCHIVE_RANKING_METRICS={score:'아카이브 포인트',contributions:'공격포인트',goals:'골',assists:'도움',efficiency:'보정 효율',appearances:'출전'};
+const ARCHIVE_RANKING_RULES={
+  player:{minAppearances:10,minPlayers:1,priorAppearances:10,weights:{volume:.5,efficiency:.3,activity:.2,depth:0}},
+  club:{minAppearances:150,minPlayers:3,priorAppearances:150,weights:{volume:.4,efficiency:.25,activity:.2,depth:.15}},
+  nation:{minAppearances:300,minPlayers:3,priorAppearances:300,weights:{volume:.4,efficiency:.25,activity:.2,depth:.15}},
+  league:{minAppearances:500,minPlayers:5,priorAppearances:500,weights:{volume:.4,efficiency:.25,activity:.2,depth:.15}}
+};
+function archiveRankingQualifies(item,scope){
+  const rule=ARCHIVE_RANKING_RULES[scope];
+  return item.appearances>=rule.minAppearances&&item.playerCount>=rule.minPlayers;
+}
+function archiveRankingRuleLabel(scope){
+  const rule=ARCHIVE_RANKING_RULES[scope];
+  return scope==='player'?`출전 ${rule.minAppearances}경기 이상`:`고유 선수 ${rule.minPlayers}명 · 출전 ${rule.minAppearances}경기 이상`;
+}
+function archiveRankingEntityRows(scope=archiveRankingState.scope){
+  if(scope==='player'){
+    const cardsByPerson=new Map();
+    db.cards.forEach(card=>{if(!cardsByPerson.has(card.personId))cardsByPerson.set(card.personId,[]);cardsByPerson.get(card.personId).push(card)});
+    return db.persons.map(p=>{
+      const cards=cardsByPerson.get(p.id)||[];
+      if(!cards.length)return null;
+      const value=sumStats(cards),representative=cards.find(card=>card.id===p.representativeCardId)||cards[0];
+      return{id:p.id,scope,nameKo:p.nameKo,nameOriginal:p.nameOriginal,subtitle:[p.nationalityKo,p.position,`${cards.length} CARD${cards.length===1?'':'S'}`].filter(Boolean).join(' · '),mark:`<span class="archive-ranking-player-mark">${portrait(p,representative)}</span>`,search:p.nameKo,position:p.position,careerStatus:p.careerStatus||'active',playerCount:1,cards:cards.length,...value};
+    }).filter(Boolean);
+  }
+  const groups=new Map();
+  db.cards.forEach(card=>{
+    const c=club(card.clubId),l=league(c?.leagueId),p=person(card.personId);
+    let key,item;
+    if(scope==='club'){
+      key=c?.id||'unknown-club';
+      item={id:c?.id||'',scope,nameKo:c?.nameKo||'팀 미상',nameOriginal:c?.nameOriginal||'소속 팀 없음',subtitle:l?.nameKo||'소속 리그 없음',mark:logo(c,'archive-ranking-mark'),search:c?.nameKo||'',leagueId:l?.id||''};
+    }else if(scope==='nation'){
+      const nationKo=p?.nationalityKo||'국적 미상',nationOriginal=p?.nationalityOriginal||'';
+      key=`nation:${nationKo}`;
+      item={id:key,scope,nameKo:nationKo,nameOriginal:nationOriginal,subtitle:'선수 국적 기준',mark:nationalityFlag(nationKo,nationOriginal,'archive-ranking-mark'),search:nationKo};
+    }else{
+      key=l?.id||'unknown-league';
+      item={id:l?.id||'',scope,nameKo:l?.nameKo||'리그 미상',nameOriginal:l?.nameOriginal||'소속 리그 없음',subtitle:l?.country||'',mark:logo(l,'archive-ranking-mark'),search:l?.nameKo||''};
+    }
+    if(!groups.has(key))groups.set(key,{...item,appearances:0,goals:0,assists:0,contributions:0,cards:0,playerIds:new Set()});
+    const target=groups.get(key),value=stats(card);
+    target.appearances+=value.appearances;
+    target.goals+=value.goals;
+    target.assists+=value.assists;
+    target.contributions+=value.contributions;
+    target.cards++;
+    target.playerIds.add(card.personId);
+  });
+  return[...groups.values()].map(item=>({...item,playerCount:item.playerIds.size,subtitle:[item.subtitle,`${item.playerIds.size}명`].filter(Boolean).join(' · ')}));
+}
+function percentileScale(values){
+  const sorted=values.filter(Number.isFinite).sort((a,b)=>a-b),length=sorted.length;
+  if(!length)return()=>0;
+  if(length===1)return()=>100;
+  return value=>{
+    let lower=0,upper=length;
+    while(lower<upper){const middle=(lower+upper)>>1;if(sorted[middle]<value)lower=middle+1;else upper=middle}
+    const first=lower;
+    upper=length;
+    while(lower<upper){const middle=(lower+upper)>>1;if(sorted[middle]<=value)lower=middle+1;else upper=middle}
+    const last=lower,rank=first<last?(first+last-1)/2:Math.max(0,Math.min(length-1,first-.5));
+    return rank/(length-1)*100;
+  };
+}
+function archiveRankingScoredRows(scope=archiveRankingState.scope){
+  const rows=archiveRankingEntityRows(scope),rule=ARCHIVE_RANKING_RULES[scope],overall=sumStats(db.cards),averageEfficiency=overall.appearances?overall.contributions/overall.appearances:0;
+  rows.forEach(item=>{
+    item.rawEfficiency=item.appearances?item.contributions/item.appearances:0;
+    item.efficiency=(item.contributions+averageEfficiency*rule.priorAppearances)/(item.appearances+rule.priorAppearances);
+    item.eligible=archiveRankingQualifies(item,scope);
+  });
+  const reference=rows.filter(item=>item.eligible),pool=reference.length?reference:rows;
+  const volumePercentile=percentileScale(pool.map(item=>item.contributions)),efficiencyPercentile=percentileScale(pool.map(item=>item.efficiency)),activityPercentile=percentileScale(pool.map(item=>item.appearances)),depthPercentile=percentileScale(pool.map(item=>item.playerCount));
+  rows.forEach(item=>{
+    const volume=volumePercentile(item.contributions)*rule.weights.volume,efficiency=efficiencyPercentile(item.efficiency)*rule.weights.efficiency,activity=activityPercentile(item.appearances)*rule.weights.activity,depth=scope==='player'?0:depthPercentile(item.playerCount)*rule.weights.depth;
+    item.scoreBreakdown={volume,efficiency,activity,depth};
+    item.score=volume+efficiency+activity+depth;
+  });
+  return rows;
+}
+function archiveRankingFilteredRows(rows,scope=archiveRankingState.scope){
+  let result=rows;
+  if(scope==='player'){
+    if(archiveRankingState.position!=='all')result=result.filter(item=>item.position===archiveRankingState.position);
+    if(archiveRankingState.career!=='all')result=result.filter(item=>item.careerStatus===archiveRankingState.career);
+  }else if(scope==='club'&&archiveRankingState.leagueId!=='all')result=result.filter(item=>item.leagueId===archiveRankingState.leagueId);
+  return result;
+}
+function archiveRankingMetricValue(item,metric=archiveRankingState.metric){return item?.[metric]||0}
+function archiveRankingMetricUnit(metric=archiveRankingState.metric){return metric==='score'?'점':metric==='appearances'?'경기':metric==='efficiency'?'G+A/M':'개'}
+function formatArchiveRankingValue(value,metric=archiveRankingState.metric){return metric==='score'?Number(value).toFixed(1):metric==='efficiency'?Number(value).toFixed(3):Math.round(Number(value)||0).toLocaleString()}
+function archiveRankingComponents(item,scope){
+  const weights=ARCHIVE_RANKING_RULES[scope].weights;
+  return[
+    {key:'volume',label:'공격 총량',points:item.scoreBreakdown.volume,max:weights.volume*100},
+    {key:'efficiency',label:'보정 효율',points:item.scoreBreakdown.efficiency,max:weights.efficiency*100},
+    {key:'activity',label:'출전 활동량',points:item.scoreBreakdown.activity,max:weights.activity*100},
+    ...(scope==='player'?[]:[{key:'depth',label:'선수층',points:item.scoreBreakdown.depth,max:weights.depth*100}])
+  ];
+}
+function populateArchiveRankingFilters(){
+  const select=$('#rankingLeagueFilter'),current=archiveRankingState.leagueId,options=[...db.leagues].sort((a,b)=>compareText(a.nameOriginal,b.nameOriginal));
+  select.innerHTML='<option value="all">전체 리그</option>'+options.map(item=>`<option value="${esc(item.id)}">${esc(item.nameKo)} · ${esc(item.nameOriginal)}</option>`).join('');
+  select.value=options.some(item=>item.id===current)?current:'all';
+  archiveRankingState.leagueId=select.value;
+}
+function resetArchiveRankingLimit(){archiveRankingRenderLimit=ARCHIVE_RANKING_PAGE_SIZE}
+function renderArchiveRankings(){
+  if(!$('#rankingsView'))return;
+  const scope=archiveRankingState.scope,metric=archiveRankingState.metric;
+  populateArchiveRankingFilters();
+  const allRows=archiveRankingScoredRows(scope),filteredRows=archiveRankingFilteredRows(allRows,scope),eligibleCount=filteredRows.filter(item=>item.eligible).length,list=filteredRows.filter(item=>archiveRankingState.eligibility==='all'||item.eligible).sort((a,b)=>archiveRankingMetricValue(b,metric)-archiveRankingMetricValue(a,metric)||b.score-a.score||b.contributions-a.contributions||compareText(a.nameOriginal,b.nameOriginal)),visible=list.slice(0,archiveRankingRenderLimit),leader=list[0],maximum=Math.max(1,...list.map(item=>archiveRankingMetricValue(item,metric))),totals=filteredRows.reduce((sum,item)=>({appearances:sum.appearances+item.appearances,contributions:sum.contributions+item.contributions}),{appearances:0,contributions:0}),unit=archiveRankingMetricUnit(metric);
+  $$('[data-ranking-scope]').forEach(button=>button.classList.toggle('active',button.dataset.rankingScope===scope));
+  $$('[data-ranking-metric]').forEach(button=>button.classList.toggle('active',button.dataset.rankingMetric===metric));
+  $$('[data-ranking-eligibility]').forEach(button=>button.classList.toggle('active',button.dataset.rankingEligibility===archiveRankingState.eligibility));
+  const playerScope=scope==='player';
+  $('#rankingPositionField').classList.toggle('hidden',!playerScope);
+  $('#rankingCareerField').classList.toggle('hidden',!playerScope);
+  $('#rankingLeagueField').classList.toggle('hidden',scope!=='club');
+  $('#rankingPositionFilter').value=archiveRankingState.position;
+  $('#rankingCareerFilter').value=archiveRankingState.career;
+  $('#rankingsOverview').innerHTML=[['RANKING ENTRIES',filteredRows.length,ARCHIVE_RANKING_SCOPES[scope]],['QUALIFIED',eligibleCount,'공인'],['TOTAL APPEARANCES',totals.appearances,'경기'],['TOTAL G+A',totals.contributions,'개']].map(([label,value,suffix])=>`<div class="analytics-overview-item"><span>${label}</span><b>${Number(value).toLocaleString()}</b><small>${suffix}</small></div>`).join('');
+  $('#rankingsTitle').textContent=`${ARCHIVE_RANKING_SCOPES[scope]} ${ARCHIVE_RANKING_METRICS[metric]}`;
+  $('#rankingsSummary').textContent=`공인 ${eligibleCount.toLocaleString()} · 전체 ${filteredRows.length.toLocaleString()} · ${archiveRankingRuleLabel(scope)}`;
+  $('#rankingsList').innerHTML=visible.length?visible.map((item,index)=>{
+    const value=archiveRankingMetricValue(item,metric),width=metric==='score'?Math.max(0,Math.min(100,value)):value/maximum*100,status=item.eligible?'공인':'표본 부족';
+    return`<button type="button" class="archive-ranking-row" data-archive-ranking-scope="${scope}" data-archive-ranking-id="${esc(item.id)}" data-archive-ranking-search="${esc(item.search)}" title="선수 아카이브에서 보기"><span class="archive-ranking-rank rank-${index+1}">${String(index+1).padStart(2,'0')}</span><span class="archive-ranking-mark-wrap">${item.mark}</span><span class="archive-ranking-identity"><b>${esc(item.nameKo)}</b><small>${esc(item.nameOriginal)}</small><em>${esc(item.subtitle)}</em></span><span class="archive-ranking-bar"><i style="width:${width.toFixed(2)}%"></i></span><span class="archive-ranking-value"><b>${formatArchiveRankingValue(value,metric)}</b><small>${unit}</small></span><span class="archive-ranking-certification ${item.eligible?'':'insufficient'}">${status}</span></button>`;
+  }).join(''):'<p class="analytics-empty">현재 조건에 맞는 랭킹 대상이 없습니다.</p>';
+  const more=$('#rankingsMore'),hasMore=list.length>visible.length;
+  more.classList.toggle('hidden',!hasMore);
+  $('#rankingsMoreSummary').textContent=`${visible.length.toLocaleString()} / ${list.length.toLocaleString()} 표시`;
+  if(leader){
+    const selectedValue=archiveRankingMetricValue(leader,metric),components=archiveRankingComponents(leader,scope);
+    $('#rankingsLeaderPanel').innerHTML=`<p class="overline">RANKING LEADER</p><span class="rankings-leader-mark">${leader.mark}</span><span class="rankings-leader-status ${leader.eligible?'':'insufficient'}">${leader.eligible?'QUALIFIED':'LOW SAMPLE'}</span><h2>${esc(leader.nameKo)}</h2><p class="analytics-leader-original">${esc(leader.nameOriginal)}</p><div class="analytics-leader-score"><b>${formatArchiveRankingValue(selectedValue,metric)}</b><span>${ARCHIVE_RANKING_METRICS[metric]} ${unit}</span></div><div class="analytics-leader-stats"><span><small>출전</small><b>${leader.appearances.toLocaleString()}</b></span><span><small>공격포인트</small><b>${leader.contributions.toLocaleString()}</b></span><span><small>골</small><b>${leader.goals.toLocaleString()}</b></span><span><small>도움</small><b>${leader.assists.toLocaleString()}</b></span></div><div class="rankings-score-total"><span><small>ARCHIVE POINT</small><b>백분위 종합점수</b></span><strong>${leader.score.toFixed(1)}</strong></div><div class="rankings-score-breakdown">${components.map(component=>`<div><span><b>${component.label}</b><small>${component.points.toFixed(1)} / ${component.max.toFixed(0)}</small></span><i><b style="width:${component.max?component.points/component.max*100:0}%"></b></i></div>`).join('')}</div><div class="rankings-method"><b>공인 기준</b><span>${archiveRankingRuleLabel(scope)}</span><small>효율은 전체 평균과 표본 수를 반영해 보정됩니다.</small></div>`;
+  }else $('#rankingsLeaderPanel').innerHTML='<p class="analytics-empty">표시할 랭킹 결과가 없습니다.</p>';
+  bindBrokenLogos($('#rankingsView'));
+  bindNationFlags($('#rankingsView'));
+  $$('#rankingsView .player-portrait').forEach(img=>img.addEventListener('error',()=>img.classList.add('broken'),{once:true}));
+  $$('[data-archive-ranking-scope]').forEach(button=>button.onclick=()=>openArchiveRankingEntity(button));
+}
+function openArchiveRankingEntity(button){
+  const scope=button.dataset.archiveRankingScope,id=button.dataset.archiveRankingId;
+  $('#positionFilter').value='all';
+  $('#searchInput').value='';
+  state.leagueId='all';
+  state.clubId='all';
+  state.mode='aggregate';
+  $$('[data-mode]').forEach(item=>item.classList.toggle('active',item.dataset.mode==='aggregate'));
+  if(scope==='player'){
+    const p=person(id),cards=db.cards.filter(card=>card.personId===id);
+    $('#searchInput').value=p?.nameKo||button.dataset.archiveRankingSearch||'';
+    if(p&&cards.length){state.selected=cards.length>1?{type:'aggregate',id:p.id}:{type:'card',id:cards[0].id};state.detailCardId=cards.length===1?cards[0].id:null}
+  }else if(scope==='club'){state.clubId=id;state.leagueId=club(id)?.leagueId||'all'}
+  else if(scope==='league')state.leagueId=id;
+  else $('#searchInput').value=button.dataset.archiveRankingSearch||'';
+  resetTableLimit();
+  render();
+  switchView('players');
+  requestAnimationFrame(()=>document.querySelector('.database').scrollIntoView({behavior:'smooth',block:'start'}));
+}
 function switchView(view){
   activeView=view;
   $$('.player-view-section').forEach(section=>section.classList.toggle('hidden',view!=='players'));
   $('#analyticsView').classList.toggle('hidden',view!=='analytics');
+  $('#rankingsView').classList.toggle('hidden',view!=='rankings');
   $('#playersViewButton').classList.toggle('active',view==='players');
   $('#statsViewButton').classList.toggle('active',view==='analytics');
+  $('#rankingsViewButton').classList.toggle('active',view==='rankings');
   if(view==='analytics')renderAnalytics();
+  if(view==='rankings')renderArchiveRankings();
   window.scrollTo({top:0,behavior:'smooth'});
 }
 function openAnalyticsGroup(button){
@@ -183,7 +353,7 @@ function openAnalyticsGroup(button){
   requestAnimationFrame(()=>document.querySelector('.database').scrollIntoView({behavior:'smooth',block:'start'}));
 }
 
-function render(){populateSelects();renderSidebar();$('[data-league="all"]').classList.toggle('active',state.leagueId==='all');renderDashboard();renderTable();renderManagers();renderDetail();if(activeView==='analytics')renderAnalytics();bindBrokenLogos()}
+function render(){populateSelects();renderSidebar();$('[data-league="all"]').classList.toggle('active',state.leagueId==='all');renderDashboard();renderTable();renderManagers();renderDetail();if(activeView==='analytics')renderAnalytics();if(activeView==='rankings')renderArchiveRankings();bindBrokenLogos()}
 function renderSidebar(){const leagueCount=id=>db.cards.filter(c=>club(c.clubId)?.leagueId===id).length,sortedLeagues=[...db.leagues].sort((a,b)=>compareText(a.nameOriginal,b.nameOriginal));$('#allLeagueCount').textContent=db.cards.length;$('#leagueFilters').innerHTML=sortedLeagues.map(l=>{const expanded=state.leagueId===l.id,teams=[...db.clubs].filter(c=>c.leagueId===l.id).sort((a,b)=>compareText(a.nameOriginal,b.nameOriginal));return`<div class="league-group"><button class="filter-link ${expanded&&state.clubId==='all'?'active':''}" data-league="${l.id}">${logo(l,'mini-mark')}<span class="filter-copy"><b>${esc(l.nameKo)}</b><small>${esc(l.nameOriginal)}</small></span><b class="filter-tail">${leagueCount(l.id)} <i>${expanded?'⌄':'›'}</i></b></button>${expanded?`<div class="team-submenu">${teams.map(c=>`<button class="filter-link team-filter ${state.clubId===c.id?'active':''}" data-club="${c.id}">${logo(c,'mini-mark')}<span class="filter-copy"><b>${esc(c.nameKo)}</b><small>${esc(c.nameOriginal)}</small></span><b>${db.cards.filter(card=>card.clubId===c.id).length}</b></button>`).join('')||'<p class="no-teams">등록된 팀 없음</p>'}</div>`:''}</div>`}).join('');$$('[data-league]').forEach(button=>button.onclick=()=>{const id=button.dataset.league;if(id==='all'){state.leagueId='all';state.clubId='all'}else if(state.leagueId===id){state.leagueId='all';state.clubId='all'}else{state.leagueId=id;state.clubId='all'}render()});$$('[data-club]').forEach(button=>button.onclick=()=>{state.clubId=button.dataset.club;state.leagueId=club(button.dataset.club)?.leagueId||'all';render()})}
 function renderDashboard(){const totals=sumStats(db.cards),leader=db.persons.map(p=>({...p,...sumStats(db.cards.filter(c=>c.personId===p.id))})).sort((a,b)=>b.contributions-a.contributions)[0];$('#dashboardStrip').innerHTML=`<div class="dashboard-metric"><span>REGISTERED CARDS</span><b>${db.cards.length.toLocaleString()}</b><small>${db.persons.length} unique players</small></div><div class="dashboard-metric"><span>TOTAL APPEARANCES</span><b>${totals.appearances.toLocaleString()}</b><small>simulation matches</small></div><div class="dashboard-metric"><span>TOTAL GOALS</span><b>${totals.goals.toLocaleString()}</b><small>${formatRate(totals.goalRate)} per match</small></div><div class="dashboard-metric"><span>ALL-TIME G+A LEADER</span><b>${leader?.contributions??'-'}</b><small>${esc(leader?.nameKo||'기록 없음')}</small></div>`}
 function resetTableLimit(){tableRenderLimit=TABLE_PAGE_SIZE}
@@ -297,10 +467,19 @@ $('#cardForm').addEventListener('submit',()=>{if($('#cardDialog').open)return;co
 $('#addCardButton').onclick=()=>openCard();$('#emptyAdd').onclick=()=>openCard();$('#manageMasters').onclick=()=>$('#mastersDialog').showModal();
 $('#playersViewButton').onclick=()=>switchView('players');
 $('#statsViewButton').onclick=()=>switchView('analytics');
+$('#rankingsViewButton').onclick=()=>switchView('rankings');
 $('#analyticsOpenButton').onclick=()=>switchView('analytics');
 $('#analyticsBackButton').onclick=()=>switchView('players');
+$('#rankingsBackButton').onclick=()=>switchView('players');
 $$('[data-analytics-scope]').forEach(button=>button.onclick=()=>{analyticsState.scope=button.dataset.analyticsScope;renderAnalytics()});
 $$('[data-analytics-metric]').forEach(button=>button.onclick=()=>{analyticsState.metric=button.dataset.analyticsMetric;renderAnalytics()});
+$$('[data-ranking-scope]').forEach(button=>button.onclick=()=>{archiveRankingState.scope=button.dataset.rankingScope;resetArchiveRankingLimit();renderArchiveRankings()});
+$$('[data-ranking-metric]').forEach(button=>button.onclick=()=>{archiveRankingState.metric=button.dataset.rankingMetric;resetArchiveRankingLimit();renderArchiveRankings()});
+$$('[data-ranking-eligibility]').forEach(button=>button.onclick=()=>{archiveRankingState.eligibility=button.dataset.rankingEligibility;resetArchiveRankingLimit();renderArchiveRankings()});
+$('#rankingPositionFilter').onchange=event=>{archiveRankingState.position=event.target.value;resetArchiveRankingLimit();renderArchiveRankings()};
+$('#rankingCareerFilter').onchange=event=>{archiveRankingState.career=event.target.value;resetArchiveRankingLimit();renderArchiveRankings()};
+$('#rankingLeagueFilter').onchange=event=>{archiveRankingState.leagueId=event.target.value;resetArchiveRankingLimit();renderArchiveRankings()};
+$('#rankingsLoadMore').onclick=()=>{archiveRankingRenderLimit+=ARCHIVE_RANKING_PAGE_SIZE;renderArchiveRankings()};
 $('#positionRankingButton').onclick=()=>{const current=$('#positionFilter').value;rankingState.position=current==='all'?'CF':current;$('#rankingPosition').value=rankingState.position;renderPositionRankings();$('#positionRankingDialog').showModal()};
 $('#positionCountButton').onclick=()=>{renderPositionCounts();$('#positionCountDialog').showModal()};
 $('#rankingPosition').onchange=e=>{rankingState.position=e.target.value;renderPositionRankings()};
