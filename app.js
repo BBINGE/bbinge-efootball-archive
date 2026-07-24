@@ -170,7 +170,8 @@ function renderAnalytics(){
 }
 
 const ARCHIVE_RANKING_SCOPES={player:'선수',club:'클럽',nation:'국가',league:'리그'};
-const ARCHIVE_RANKING_METRICS={score:'아카이브 포인트',contributions:'공격포인트',goals:'골',assists:'도움',efficiency:'보정 효율',appearances:'출전'};
+const ARCHIVE_RANKING_METRICS={score:'아카이브 포인트',roleImpact:'역할 보정 영향력',contributions:'공격포인트',goals:'골',assists:'도움',efficiency:'보정 공격 효율',appearances:'출전'};
+const DEFENSIVE_POSITIONS=new Set(['GK','CB','LB','RB','DMF']);
 const ARCHIVE_RANKING_RULES={
   player:{minAppearances:10,minPlayers:1,priorAppearances:10,weights:{volume:.5,efficiency:.3,activity:.2,depth:0}},
   club:{minAppearances:150,minPlayers:3,priorAppearances:150,weights:{volume:.4,efficiency:.25,activity:.2,depth:.15}},
@@ -184,6 +185,13 @@ function archiveRankingQualifies(item,scope){
 function archiveRankingRuleLabel(scope){
   const rule=ARCHIVE_RANKING_RULES[scope];
   return scope==='player'?`출전 ${rule.minAppearances}경기 이상`:`고유 선수 ${rule.minPlayers}명 · 출전 ${rule.minAppearances}경기 이상`;
+}
+function defensiveRoleGroup(position){
+  if(position==='GK')return'GK';
+  if(position==='CB')return'CB';
+  if(position==='LB'||position==='RB')return'FB';
+  if(position==='DMF')return'DMF';
+  return'';
 }
 function archiveRankingEntityRows(scope=archiveRankingState.scope){
   if(scope==='player'){
@@ -211,7 +219,7 @@ function archiveRankingEntityRows(scope=archiveRankingState.scope){
       key=l?.id||'unknown-league';
       item={id:l?.id||'',scope,nameKo:l?.nameKo||'리그 미상',nameOriginal:l?.nameOriginal||'소속 리그 없음',subtitle:l?.country||'',mark:logo(l,'archive-ranking-mark'),search:l?.nameKo||''};
     }
-    if(!groups.has(key))groups.set(key,{...item,appearances:0,goals:0,assists:0,contributions:0,cards:0,playerIds:new Set()});
+    if(!groups.has(key))groups.set(key,{...item,appearances:0,goals:0,assists:0,contributions:0,cards:0,playerIds:new Set(),playerStats:new Map()});
     const target=groups.get(key),value=stats(card);
     target.appearances+=value.appearances;
     target.goals+=value.goals;
@@ -219,8 +227,15 @@ function archiveRankingEntityRows(scope=archiveRankingState.scope){
     target.contributions+=value.contributions;
     target.cards++;
     target.playerIds.add(card.personId);
+    if(!target.playerStats.has(card.personId))target.playerStats.set(card.personId,{personId:card.personId,position:p?.position||card.cardPosition||'UNKNOWN',appearances:0,contributions:0});
+    const playerLine=target.playerStats.get(card.personId);
+    playerLine.appearances+=value.appearances;
+    playerLine.contributions+=value.contributions;
   });
-  return[...groups.values()].map(item=>({...item,playerCount:item.playerIds.size,subtitle:[item.subtitle,`${item.playerIds.size}명`].filter(Boolean).join(' · ')}));
+  return[...groups.values()].map(item=>{
+    const defensiveLines=[...item.playerStats.values()].filter(line=>DEFENSIVE_POSITIONS.has(line.position)),coverage=new Set(defensiveLines.filter(line=>line.appearances>=10).map(line=>defensiveRoleGroup(line.position)).filter(Boolean));
+    return{...item,playerCount:item.playerIds.size,defensiveAppearances:defensiveLines.reduce((sum,line)=>sum+line.appearances,0),defensivePlayerCount:defensiveLines.length,defensiveCoverage:coverage.size/4*100,subtitle:[item.subtitle,`${item.playerIds.size}명`].filter(Boolean).join(' · ')};
+  });
 }
 function percentileScale(values){
   const sorted=values.filter(Number.isFinite).sort((a,b)=>a-b),length=sorted.length;
@@ -236,6 +251,28 @@ function percentileScale(values){
     return rank/(length-1)*100;
   };
 }
+function applyPositionRoleScores(rows,scope){
+  const segments=scope==='player'
+    ?rows.map(item=>({item,stats:item,position:item.position||'UNKNOWN'}))
+    :rows.flatMap(item=>[...item.playerStats.values()].map(stats=>({item,stats,position:stats.position||'UNKNOWN'})));
+  const positions=new Map();
+  segments.forEach(segment=>{if(!positions.has(segment.position))positions.set(segment.position,[]);positions.get(segment.position).push(segment)});
+  positions.forEach(group=>{
+    const eligible=group.filter(segment=>segment.stats.appearances>=ARCHIVE_RANKING_RULES.player.minAppearances),pool=eligible.length?eligible:group,total=pool.reduce((sum,segment)=>({appearances:sum.appearances+segment.stats.appearances,contributions:sum.contributions+segment.stats.contributions}),{appearances:0,contributions:0}),positionAverage=total.appearances?total.contributions/total.appearances:0,prior=ARCHIVE_RANKING_RULES.player.priorAppearances;
+    group.forEach(segment=>{segment.positionEfficiency=(segment.stats.contributions+positionAverage*prior)/(segment.stats.appearances+prior)});
+    const activityPercentile=percentileScale(pool.map(segment=>segment.stats.appearances)),efficiencyPercentile=percentileScale(pool.map(segment=>segment.positionEfficiency));
+    group.forEach(segment=>{
+      segment.roleActivityScore=activityPercentile(segment.stats.appearances)*.6;
+      segment.roleEfficiencyScore=efficiencyPercentile(segment.positionEfficiency)*.4;
+      segment.roleImpact=segment.roleActivityScore+segment.roleEfficiencyScore;
+      if(scope==='player')Object.assign(segment.item,{positionEfficiency:segment.positionEfficiency,roleActivityScore:segment.roleActivityScore,roleEfficiencyScore:segment.roleEfficiencyScore,roleImpact:segment.roleImpact});
+    });
+  });
+  if(scope!=='player')rows.forEach(item=>{
+    const itemSegments=segments.filter(segment=>segment.item===item),weighted=itemSegments.reduce((sum,segment)=>{const weight=Math.sqrt(Math.max(0,segment.stats.appearances));return{points:sum.points+segment.roleImpact*weight,weight:sum.weight+weight}},{points:0,weight:0});
+    item.rolePlayerScore=weighted.weight?weighted.points/weighted.weight:0;
+  });
+}
 function archiveRankingScoredRows(scope=archiveRankingState.scope){
   const rows=archiveRankingEntityRows(scope),rule=ARCHIVE_RANKING_RULES[scope],overall=sumStats(db.cards),averageEfficiency=overall.appearances?overall.contributions/overall.appearances:0;
   rows.forEach(item=>{
@@ -243,12 +280,22 @@ function archiveRankingScoredRows(scope=archiveRankingState.scope){
     item.efficiency=(item.contributions+averageEfficiency*rule.priorAppearances)/(item.appearances+rule.priorAppearances);
     item.eligible=archiveRankingQualifies(item,scope);
   });
+  applyPositionRoleScores(rows,scope);
   const reference=rows.filter(item=>item.eligible),pool=reference.length?reference:rows;
   const volumePercentile=percentileScale(pool.map(item=>item.contributions)),efficiencyPercentile=percentileScale(pool.map(item=>item.efficiency)),activityPercentile=percentileScale(pool.map(item=>item.appearances)),depthPercentile=percentileScale(pool.map(item=>item.playerCount));
+  const defensiveActivityPercentile=scope==='player'?null:percentileScale(pool.map(item=>item.defensiveAppearances)),defensiveDepthPercentile=scope==='player'?null:percentileScale(pool.map(item=>item.defensivePlayerCount));
   rows.forEach(item=>{
     const volume=volumePercentile(item.contributions)*rule.weights.volume,efficiency=efficiencyPercentile(item.efficiency)*rule.weights.efficiency,activity=activityPercentile(item.appearances)*rule.weights.activity,depth=scope==='player'?0:depthPercentile(item.playerCount)*rule.weights.depth;
     item.scoreBreakdown={volume,efficiency,activity,depth};
     item.score=volume+efficiency+activity+depth;
+    if(scope!=='player'){
+      const defensiveActivity=defensiveActivityPercentile(item.defensiveAppearances)*.4,defensiveDepth=defensiveDepthPercentile(item.defensivePlayerCount)*.35,defensiveCoverage=item.defensiveCoverage*.25;
+      item.defensiveBaseBreakdown={activity:defensiveActivity,depth:defensiveDepth,coverage:defensiveCoverage};
+      item.defensiveBase=defensiveActivity+defensiveDepth+defensiveCoverage;
+      item.rolePlayerComponent=item.rolePlayerScore*.7;
+      item.defensiveComponent=item.defensiveBase*.3;
+      item.roleImpact=item.rolePlayerComponent+item.defensiveComponent;
+    }
   });
   return rows;
 }
@@ -261,16 +308,30 @@ function archiveRankingFilteredRows(rows,scope=archiveRankingState.scope){
   return result;
 }
 function archiveRankingMetricValue(item,metric=archiveRankingState.metric){return item?.[metric]||0}
-function archiveRankingMetricUnit(metric=archiveRankingState.metric){return metric==='score'?'점':metric==='appearances'?'경기':metric==='efficiency'?'G+A/M':'개'}
-function formatArchiveRankingValue(value,metric=archiveRankingState.metric){return metric==='score'?Number(value).toFixed(1):metric==='efficiency'?Number(value).toFixed(3):Math.round(Number(value)||0).toLocaleString()}
-function archiveRankingComponents(item,scope){
+function archiveRankingMetricUnit(metric=archiveRankingState.metric){return metric==='score'||metric==='roleImpact'?'점':metric==='appearances'?'경기':metric==='efficiency'?'G+A/M':'개'}
+function formatArchiveRankingValue(value,metric=archiveRankingState.metric){return metric==='score'||metric==='roleImpact'?Number(value).toFixed(1):metric==='efficiency'?Number(value).toFixed(3):Math.round(Number(value)||0).toLocaleString()}
+function archiveRankingComponents(item,scope,metric=archiveRankingState.metric){
+  if(metric==='roleImpact'){
+    if(scope==='player')return[
+      {key:'roleActivity',label:'포지션 내 출전',points:item.roleActivityScore,max:60},
+      {key:'roleEfficiency',label:'포지션 내 공격 효율',points:item.roleEfficiencyScore,max:40}
+    ];
+    return[
+      {key:'rolePlayer',label:'포지션 역할 점수',points:item.rolePlayerComponent,max:70},
+      {key:'defensiveBase',label:'수비 기반',points:item.defensiveComponent,max:30}
+    ];
+  }
   const weights=ARCHIVE_RANKING_RULES[scope].weights;
   return[
     {key:'volume',label:'공격 총량',points:item.scoreBreakdown.volume,max:weights.volume*100},
-    {key:'efficiency',label:'보정 효율',points:item.scoreBreakdown.efficiency,max:weights.efficiency*100},
+    {key:'efficiency',label:'보정 공격 효율',points:item.scoreBreakdown.efficiency,max:weights.efficiency*100},
     {key:'activity',label:'출전 활동량',points:item.scoreBreakdown.activity,max:weights.activity*100},
     ...(scope==='player'?[]:[{key:'depth',label:'선수층',points:item.scoreBreakdown.depth,max:weights.depth*100}])
   ];
+}
+function archiveRankingMethodText(scope,metric){
+  if(metric!=='roleImpact')return'공격 효율은 전체 평균과 표본 수를 반영해 보정됩니다.';
+  return scope==='player'?'같은 포지션 안에서 출전 60%와 보정 공격 효율 40%를 비교합니다.':'포지션 역할 점수 70%와 수비 포지션의 출전·선수층·구성 30%를 결합합니다. 실제 수비 성과를 뜻하지는 않습니다.';
 }
 function populateArchiveRankingFilters(){
   const select=$('#rankingLeagueFilter'),current=archiveRankingState.leagueId,options=[...db.leagues].sort((a,b)=>compareText(a.nameOriginal,b.nameOriginal));
@@ -299,15 +360,15 @@ function renderArchiveRankings(){
   $('#rankingsTitle').textContent=`${ARCHIVE_RANKING_SCOPES[scope]} ${ARCHIVE_RANKING_METRICS[metric]}`;
   $('#rankingsSummary').textContent=`공인 ${eligibleCount.toLocaleString()} · 전체 ${filteredRows.length.toLocaleString()} · ${archiveRankingRuleLabel(scope)}`;
   $('#rankingsList').innerHTML=visible.length?visible.map((item,index)=>{
-    const value=archiveRankingMetricValue(item,metric),width=metric==='score'?Math.max(0,Math.min(100,value)):value/maximum*100,status=item.eligible?'공인':'표본 부족',isSelected=item.id===archiveRankingState.selectedId;
+    const value=archiveRankingMetricValue(item,metric),width=metric==='score'||metric==='roleImpact'?Math.max(0,Math.min(100,value)):value/maximum*100,status=item.eligible?'공인':'표본 부족',isSelected=item.id===archiveRankingState.selectedId;
     return`<button type="button" class="archive-ranking-row ${isSelected?'selected':''}" data-archive-ranking-scope="${scope}" data-archive-ranking-id="${esc(item.id)}" data-archive-ranking-search="${esc(item.search)}" aria-pressed="${isSelected}" title="우측 상세 지표 보기"><span class="archive-ranking-rank rank-${index+1}">${String(index+1).padStart(2,'0')}</span><span class="archive-ranking-mark-wrap">${item.mark}</span><span class="archive-ranking-identity"><b>${esc(item.nameKo)}</b><small>${esc(item.nameOriginal)}</small><em>${esc(item.subtitle)}</em></span><span class="archive-ranking-bar"><i style="width:${width.toFixed(2)}%"></i></span><span class="archive-ranking-value"><b>${formatArchiveRankingValue(value,metric)}</b><small>${unit}</small></span><span class="archive-ranking-certification ${item.eligible?'':'insufficient'}">${status}</span></button>`;
   }).join(''):'<p class="analytics-empty">현재 조건에 맞는 랭킹 대상이 없습니다.</p>';
   const more=$('#rankingsMore'),hasMore=list.length>visible.length;
   more.classList.toggle('hidden',!hasMore);
   $('#rankingsMoreSummary').textContent=`${visible.length.toLocaleString()} / ${list.length.toLocaleString()} 표시`;
   if(selected){
-    const selectedValue=archiveRankingMetricValue(selected,metric),components=archiveRankingComponents(selected,scope);
-    $('#rankingsLeaderPanel').innerHTML=`<div class="analytics-panel-kicker"><p class="overline">RANKING DETAIL</p><span>#${String(selectedRank).padStart(2,'0')}</span></div><span class="rankings-leader-mark">${selected.mark}</span><span class="rankings-leader-status ${selected.eligible?'':'insufficient'}">${selected.eligible?'QUALIFIED':'LOW SAMPLE'}</span><h2>${esc(selected.nameKo)}</h2><p class="analytics-leader-original">${esc(selected.nameOriginal)}</p><div class="analytics-leader-score"><b>${formatArchiveRankingValue(selectedValue,metric)}</b><span>${ARCHIVE_RANKING_METRICS[metric]} ${unit}</span></div><div class="analytics-leader-stats"><span><small>출전</small><b>${selected.appearances.toLocaleString()}</b></span><span><small>공격포인트</small><b>${selected.contributions.toLocaleString()}</b></span><span><small>골</small><b>${selected.goals.toLocaleString()}</b></span><span><small>도움</small><b>${selected.assists.toLocaleString()}</b></span></div><div class="rankings-score-total"><span><small>ARCHIVE POINT</small><b>백분위 종합점수</b></span><strong>${selected.score.toFixed(1)}</strong></div><div class="rankings-score-breakdown">${components.map(component=>`<div><span><b>${component.label}</b><small>${component.points.toFixed(1)} / ${component.max.toFixed(0)}</small></span><i><b style="width:${component.max?component.points/component.max*100:0}%"></b></i></div>`).join('')}</div><div class="rankings-method"><b>공인 기준</b><span>${archiveRankingRuleLabel(scope)}</span><small>효율은 전체 평균과 표본 수를 반영해 보정됩니다.</small></div><button class="analytics-panel-action" type="button" data-open-ranking-scope="${scope}" data-open-ranking-id="${esc(selected.id)}" data-open-ranking-search="${esc(selected.search)}">선수 아카이브에서 보기 <span>→</span></button>`;
+    const selectedValue=archiveRankingMetricValue(selected,metric),components=archiveRankingComponents(selected,scope,metric),roleGroupMetric=metric==='roleImpact'&&scope!=='player',detailStats=roleGroupMetric?`<div class="analytics-leader-stats"><span><small>수비 출전</small><b>${selected.defensiveAppearances.toLocaleString()}</b></span><span><small>수비 선수</small><b>${selected.defensivePlayerCount.toLocaleString()}</b></span><span><small>수비 구성</small><b>${Math.round(selected.defensiveCoverage)}%</b></span><span><small>공격포인트</small><b>${selected.contributions.toLocaleString()}</b></span></div>`:`<div class="analytics-leader-stats"><span><small>출전</small><b>${selected.appearances.toLocaleString()}</b></span><span><small>공격포인트</small><b>${selected.contributions.toLocaleString()}</b></span><span><small>골</small><b>${selected.goals.toLocaleString()}</b></span><span><small>도움</small><b>${selected.assists.toLocaleString()}</b></span></div>`,methodTitle=metric==='roleImpact'?'역할 보정 기준':'공인 기준';
+    $('#rankingsLeaderPanel').innerHTML=`<div class="analytics-panel-kicker"><p class="overline">RANKING DETAIL</p><span>#${String(selectedRank).padStart(2,'0')}</span></div><span class="rankings-leader-mark">${selected.mark}</span><span class="rankings-leader-status ${selected.eligible?'':'insufficient'}">${selected.eligible?'QUALIFIED':'LOW SAMPLE'}</span><h2>${esc(selected.nameKo)}</h2><p class="analytics-leader-original">${esc(selected.nameOriginal)}</p><div class="analytics-leader-score"><b>${formatArchiveRankingValue(selectedValue,metric)}</b><span>${ARCHIVE_RANKING_METRICS[metric]} ${unit}</span></div>${detailStats}<div class="rankings-score-total"><span><small>ARCHIVE POINT</small><b>백분위 종합점수</b></span><strong>${selected.score.toFixed(1)}</strong></div><div class="rankings-score-breakdown">${components.map(component=>`<div><span><b>${component.label}</b><small>${component.points.toFixed(1)} / ${component.max.toFixed(0)}</small></span><i><b style="width:${component.max?component.points/component.max*100:0}%"></b></i></div>`).join('')}</div><div class="rankings-method"><b>${methodTitle}</b><span>${archiveRankingRuleLabel(scope)}</span><small>${archiveRankingMethodText(scope,metric)}</small></div><button class="analytics-panel-action" type="button" data-open-ranking-scope="${scope}" data-open-ranking-id="${esc(selected.id)}" data-open-ranking-search="${esc(selected.search)}">선수 아카이브에서 보기 <span>→</span></button>`;
   }else $('#rankingsLeaderPanel').innerHTML='<p class="analytics-empty">표시할 랭킹 결과가 없습니다.</p>';
   bindBrokenLogos($('#rankingsView'));
   bindNationFlags($('#rankingsView'));
