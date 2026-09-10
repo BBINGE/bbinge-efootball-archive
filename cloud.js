@@ -5,6 +5,9 @@
   const SUPABASE_KEY='sb_publishable_7Bi-obrvmknad_tWyt02DQ_5fPtBGMJ';
   const TABLE='football_archives';
   const BUCKET='player-photos';
+  const SIGNED_URL_TTL=60*60*24*7;
+  const SIGNED_URL_BATCH_SIZE=100;
+  const SIGNED_URL_RETRY_SIZE=5;
   let client=null;
   let currentUser=null;
   let cloudRevision=0;
@@ -108,20 +111,40 @@
     }
   }
 
+  async function hydrateSignedUrls(items,pathKey,urlKey){
+    const bucket=client.storage.from(BUCKET);
+    for(let start=0;start<items.length;start+=SIGNED_URL_BATCH_SIZE){
+      const batch=items.slice(start,start+SIGNED_URL_BATCH_SIZE);
+      const paths=batch.map(item=>item[pathKey]);
+      const {data,error}=await bucket.createSignedUrls(paths,SIGNED_URL_TTL);
+      const signedPaths=new Set();
+      if(!error&&Array.isArray(data)){
+        const itemsByPath=new Map(batch.map(item=>[item[pathKey],item]));
+        data.forEach((result,index)=>{
+          if(!result?.signedUrl)return;
+          const item=itemsByPath.get(result.path)||batch[index];
+          if(!item)return;
+          item[urlKey]=result.signedUrl;
+          signedPaths.add(item[pathKey]);
+        });
+      }
+      const retry=batch.filter(item=>!signedPaths.has(item[pathKey]));
+      for(let retryStart=0;retryStart<retry.length;retryStart+=SIGNED_URL_RETRY_SIZE){
+        await Promise.all(retry.slice(retryStart,retryStart+SIGNED_URL_RETRY_SIZE).map(async item=>{
+          const {data:singleData,error:singleError}=await bucket.createSignedUrl(item[pathKey],SIGNED_URL_TTL);
+          if(!singleError&&singleData?.signedUrl)item[urlKey]=singleData.signedUrl;
+        }));
+      }
+    }
+  }
+
   async function hydratePhotoUrls(target){
-    const cards=target.cards.filter(card=>card.photoPath);
-    await Promise.all(cards.map(async card=>{
-      const {data,error}=await client.storage.from(BUCKET).createSignedUrl(card.photoPath,60*60*24*7);
-      if(!error&&data?.signedUrl)card.photo=data.signedUrl;
-    }));
+    await hydrateSignedUrls(target.cards.filter(card=>card.photoPath),'photoPath','photo');
   }
 
   async function hydrateLogoUrls(target){
     const items=[...(target.leagues||[]),...(target.clubs||[])].filter(item=>item.logoPath);
-    await Promise.all(items.map(async item=>{
-      const {data,error}=await client.storage.from(BUCKET).createSignedUrl(item.logoPath,60*60*24*7);
-      if(!error&&data?.signedUrl)item.logo=data.signedUrl;
-    }));
+    await hydrateSignedUrls(items,'logoPath','logo');
   }
 
   async function loadCloudArchive(){
